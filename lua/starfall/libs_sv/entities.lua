@@ -419,6 +419,7 @@ end
 function ents_methods:remove()
 	local ent = getent(self)
 	if ent:IsWorld() or ent:IsPlayer() then SF.Throw("Cannot remove world or player", 2) end
+	if ent:IsWeapon() then SF.Throw("Cannot remove weapons", 2) end
 	checkpermission(instance, ent, "entities.remove")
 
 	ent:Remove()
