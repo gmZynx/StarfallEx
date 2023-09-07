@@ -23,6 +23,7 @@ registerprivilege("nextbot.setApproachPos", "Nextbot approach goal", "Allows the
 registerprivilege("nextbot.removeApproachPos", "Nextbot approach goal", "Allows the user to remove the approach pos from a nextbot.", {entites = {}})
 registerprivilege("nextbot.removeGotoPos", "Remove nextbot goto pos", "Allows the user to remove the goto pos from a nextbot.", {entites = {}})
 registerprivilege("nextbot.playSequence", "Play nextbot sequence", "Allows the user to set an animation for the nextbot to play.", {entites = {}})
+registerprivilege("nextbot.startActivity", "Play nextbot activity", "Allows the user to set an activity for the nextbot to play.", {entites = {}})
 registerprivilege("nextbot.faceTowards", "Face nextbot towards", "Allows the user to make a nextbot face a position.", {entities = {}})
 registerprivilege("nextbot.setRunAct", "Set nextbot run activity", "Allows the user to set nextbot's run animation.", {entities = {}})
 registerprivilege("nextbot.setIdleAct", "Set nextbot idle activity", "Allows the user to set nextbot's idle animation.", {entities = {}})
@@ -134,7 +135,18 @@ function nb_methods:removeApproachPos()
 	local nb = nbunwrap(self)
 	checkpermission(instance, nb, "nextbot.removeApproachPos")
 	nb.approachPos = nil
-end	
+end
+
+--- Returns the Vector the nextbot is trying to go to, set by setApproachPos
+-- @server
+-- @return Vector? Where the nextbot is trying to go to if it exists, else returns nil.
+function nb_methods:getApproachPos()
+	local nb = nbunwrap(self)
+	if nb.approachPos then
+		return vwrap(nb.approachPos)
+	else return nil 
+	end
+end
 
 --- Makes the nextbot try to go to a specified position using navmesh pathfinding.
 -- @server
@@ -172,6 +184,15 @@ function nb_methods:playSequence(seq)
 	local nb = nbunwrap(self)
 	checkpermission(instance, nb, "nextbot.playSequence")
 	nb.playSeq = seq
+end
+
+--- Start doing an activity (animation).
+-- @server
+-- @param number act The ACT enum to play.
+function nb_methods:startActivity(act)
+	checkluatype(act, TYPE_NUMBER)
+	checkpermission(instance, nb, "nextbot.startActivity")
+	nbunwrap(self):StartActivity(act)
 end
 
 --- Makes the nextbot face towards a specified position. Has to be called continuously to be effective.
