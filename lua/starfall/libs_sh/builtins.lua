@@ -308,7 +308,7 @@ end
 -- @return boolean Whether the client has granted the specified permission.
 function builtins_library.hasPermission(perm, obj)
 	checkluatype(perm, TYPE_STRING)
-	if not SF.Permissions.permissionchecks[perm] then SF.Throw("Permission doesn't exist", 2) end
+	if not SF.Permissions.privileges[perm] then SF.Throw("Permission doesn't exist", 2) end
 	return haspermission(instance, ounwrap(obj), perm)
 end
 
@@ -339,8 +339,8 @@ if CLIENT then
 				if not privileges[v] then
 					SF.Throw("Invalid permission name: "..v)
 				end
-				if not privileges[v][3].client then
-					SF.Throw("Permission isn't requestable: "..v)
+				if not privileges[v].overridable then
+					SF.Throw("Only client controlled permissions are requestable: "..v)
 				end
 				overrides[v] = true
 			end
