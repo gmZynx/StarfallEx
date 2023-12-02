@@ -242,13 +242,14 @@ function Editor:LoadEditorSettings()
 end
 
 function Editor:SaveEditorSettings()
-
 	-- Position & Size
-	local w, h = self:GetSize()
-	RunConsoleCommand("sf_editor_size", w .. "_" .. h)
+	if not self.fs then
+		local w, h = self:GetSize()
+		RunConsoleCommand("sf_editor_size", w .. "_" .. h)
 
-	local x, y = self:GetPos()
-	RunConsoleCommand("sf_editor_pos", x .. "_" .. y)
+		local x, y = self:GetPos()
+		RunConsoleCommand("sf_editor_pos", x .. "_" .. y)
+	end
 end
 function Editor:Paint(w, h)
 	draw.RoundedBox(0, 0, 0, w, h, SF.Editor.colors.dark)
@@ -296,7 +297,7 @@ function Editor:OnMousePressed(mousecode)
 		self.p_my = gui.MouseY()
 		self.p_mode = self:GetMode()
 		if self.p_mode == "drag" then
-			if self.GuiClick > CurTime() - 0.2 then
+			if self.GuiClick > CurTime() - 0.4 then
 				self:Fullscreen()
 				self.pressed = false
 				self.GuiClick = 0
@@ -730,12 +731,12 @@ function Editor:CloseTab(_tab,dontask)
 			end
 		end
 	end
-	
+
 	if not IsValid(activetab) then return end
-	
+
 	local ed = activetab:GetPanel()
 	if not ed:IsSaved() and not dontask and not ed.IsOnline then
-		
+
 		local popup = self.closePopups[activetab]
 		if not IsValid(popup) then
 			local newPopup = SF.Editor.Query("Unsaved changes!", string.format("Do you want to close <color=255,30,30>%q</color> ?", activetab:GetText()), "Close", function()
@@ -746,12 +747,12 @@ function Editor:CloseTab(_tab,dontask)
 			end)
 			self.closePopups[activetab] = newPopup
 		end
-		
+
 		if IsValid(popup) then
 			popup:Center()
 			popup:MakePopup()
 		end
-		
+
 		return
 	end
 
@@ -1639,7 +1640,7 @@ function Editor:SaveFile(Line, close, SaveAs, Func)
 				str = nil
 			end
 		end
-		
+
 		Derma_StringRequestNoBlur("Save to New File", "", (str ~= nil and str .. "/" or "") .. self.savefilefn,
 			function(strTextOut)
 				strTextOut = self.Location .. "/" .. string.gsub(strTextOut, ".", invalid_filename_chars) .. ".txt"
@@ -1650,14 +1651,14 @@ function Editor:SaveFile(Line, close, SaveAs, Func)
 						self:SaveFile(strTextOut, close)
 					end
 				end
-				
+
 				if file.Exists(strTextOut, "DATA") then
 					Derma_QueryNoBlur("File " .. strTextOut .. " already exists!", "File exists!", "Override", save, "Cancel")
 				else
 					save()
 				end
 			end)
-			
+
 		return
 	end
 
@@ -1909,9 +1910,9 @@ function Editor:Setup(nTitle, nLocation, nEditorType)
 	FontEditor:Dock(RIGHT)
 	FontEditor:SetText("Font Editor")
 	FontEditor.DoClick = function()
-		if self.fontEditor and self.fontEditor:IsValid() then 
+		if self.fontEditor and self.fontEditor:IsValid() then
 			self.fontEditor:MakePopup() -- bring to front
-			return 
+			return
 		end
 
 		self.fontEditor = vgui.Create("StarfallFontPicker")
@@ -2045,13 +2046,7 @@ function PANEL:UpdatePlayers(players)
 			local killserver = vgui.Create("StarfallButton", cpuServer)
 			killserver:SetText("Admin Kill")
 			killserver.DoClick = function()
-				if SF.playerInstances[ply] then
-					for instance, _ in pairs(SF.playerInstances[ply]) do
-						net.Start("starfall_processor_kill")
-						net.WriteEntity(instance.entity)
-						net.SendToServer()
-					end
-				end
+				RunConsoleCommand( "sf_kill", steamid )
 			end
 			killserver:Dock(LEFT)
 		end
@@ -2071,9 +2066,7 @@ function PANEL:UpdatePlayers(players)
 		local killclient = vgui.Create("StarfallButton", cpuClient)
 		killclient:SetText("Kill all")
 		killclient.DoClick = function()
-			for instance, _ in pairs(SF.playerInstances[ply]) do
-				instance:Error({message = "Killed by user", traceback = ""})
-			end
+			RunConsoleCommand( "sf_kill_cl", steamid )
 		end
 		killclient:Dock(LEFT)
 

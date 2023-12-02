@@ -62,7 +62,7 @@ if SERVER then
 	-- @param Player ply Player freezing the entity
 	add("OnPhysgunFreeze")
 
-	--- Called when a player reloads his physgun
+	--- Called when a player reloads their physgun
 	-- @name OnPhysgunReload
 	-- @class hook
 	-- @server
@@ -166,7 +166,7 @@ if SERVER then
 	-- @return string? New text. "" to stop from displaying. Nil to keep original.
 	add("PlayerSay", nil, nil, returnOnlyOnYourself, true)
 
-	--- Called when a players sprays his logo
+	--- Called when a players sprays their logo
 	-- @name PlayerSpray
 	-- @class hook
 	-- @server
@@ -456,9 +456,17 @@ add("PropBreak")
 -- @shared
 -- @param Entity ent The entity that fired the bullet
 -- @param table data The bullet data. See http://wiki.facepunch.com/gmod/Structures/Bullet
+-- @return function? Optional callback to called as if it were the Bullet structure's Callback. Called before the bullet deals damage with attacker, traceResult.
 add("EntityFireBullets", nil, function(instance, ent, data)
 	return true, { instance.WrapObject(ent), SF.StructWrapper(instance, data, "Bullet") }
-end)
+end, function(instance, ret, ent, data)
+	if ret[1] and isfunction(ret[2]) then
+		data.Callback = function(attacker, tr, dmginfo)
+			instance:runFunction(ret[2], instance.WrapObject(attacker), SF.StructWrapper(instance, tr, "TraceResult"))
+		end
+		return true
+	end
+end, true)
 
 --- Called whenever a sound has been played. This will not be called clientside if the server played the sound without the client also calling Entity:EmitSound.
 -- @name EntityEmitSound
