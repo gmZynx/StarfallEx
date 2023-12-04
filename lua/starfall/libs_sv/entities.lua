@@ -477,6 +477,7 @@ end
 function ents_methods:setSolid(solid)
 	local ent = getent(self)
 	if ent:IsPlayer() then SF.Throw("Target is a player!", 2) end
+	if ent:IsVehicle() then SF.Throw("Target is a vehicle!", 2) end
 	checkpermission(instance, ent, "entities.setSolid")
 
 	ent:SetNotSolid(not solid)
