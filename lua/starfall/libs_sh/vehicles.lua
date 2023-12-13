@@ -52,7 +52,9 @@ if SERVER then
 	--- Ejects the driver of the vehicle
 	-- @server
 	function vehicle_methods:ejectDriver()
-		local driver = getveh(self):GetDriver()
+		local ent = getveh(self)
+		checkpermission(instance, ent, "vehicle.eject")
+		local driver = ent:GetDriver()
 		if driver:IsValid() then
 			driver:ExitVehicle()
 		end
