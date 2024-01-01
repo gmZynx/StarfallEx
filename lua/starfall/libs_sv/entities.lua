@@ -1,6 +1,7 @@
 -- Global to all starfalls
 local checkluatype = SF.CheckLuaType
 local registerprivilege = SF.Permissions.registerPrivilege
+local haspermission = SF.Permissions.hasAccess
 
 local huge = math.huge
 local abs = math.abs
@@ -138,27 +139,78 @@ function ents_methods:applyDamage(amt, attacker, inflictor, dmgtype, pos)
 end
 
 --- Sets a custom prop's physics simulation forces. Thrusters and balloons use this.
+-- This takes precedence over Entity.setCustomPropShadowForce and cannot be used together
 -- @param Vector ang Angular Force (Torque)
 -- @param Vector lin Linear Force
--- @param number mode The physics mode to use. 0 = Off, 1 = Local acceleration, 2 = Local force, 3 = Global Acceleration, 4 = Global force
+-- @param number mode The physics mode to use. 0 = Off (disables custom physics entirely), 1 = Local acceleration, 2 = Local force, 3 = Global Acceleration, 4 = Global force
 function ents_methods:setCustomPropForces(ang, lin, mode)
 	local ent = getent(self)
 	if ent:GetClass()~="starfall_prop" then SF.Throw("The entity isn't a custom prop", 2) end
 
 	checkpermission(instance, ent, "entities.applyForce")
 
-	ang = vunwrap(ang)
-	checkvector(ang)
-	lin = vunwrap(lin)
-	checkvector(lin)
+	if mode == 0 then
+		ent:EnableCustomPhysics(false)
+	elseif mode == 1 or mode == 2 or mode == 3 or mode == 4 then
+		ang = vunwrap(ang)
+		checkvector(ang)
+		lin = vunwrap(lin)
+		checkvector(lin)
 
-	checkluatype(mode, TYPE_NUMBER)
-	if mode ~= 0 and mode ~= 1 and mode ~= 2 and mode ~= 3 and mode ~= 4 then SF.Throw("Invalid mode", 2) end
-
-	function ent:PhysicsSimulate()
-		return ang, lin, mode
+		ent.customForceMode = mode
+		ent.customForceLinear = lin
+		ent.customForceAngular = ang
+		ent:EnableCustomPhysics(1)
+	else
+		SF.Throw("Invalid mode, see the SIM enum", 2)
 	end
-	ent:StartMotionController()
+end
+
+--- Sets a custom prop's shadow forces, moving the entity to the desired position and angles
+-- This gets overriden by Entity.setCustomPropForces and cannot be used together
+-- See available parameters here: https://wiki.facepunch.com/gmod/PhysObj:ComputeShadowControl
+-- @param data table|false Shadow physics data, excluding 'deltatime'. 'teleportdistance' higher than 0 requires 'entities.setPos'. Pass a falsy value to disable custom physics entirely
+function ents_methods:setCustomPropShadowForce(data)
+	local ent = getent(self)
+	if ent:GetClass()~="starfall_prop" then SF.Throw("The entity isn't a custom prop", 2) end
+
+	checkpermission(instance, ent, "entities.applyForce")
+
+	if not data then
+		ent:EnableCustomPhysics(false)
+	else
+		local pos = vunwrap(data.pos)
+		checkvector(pos)
+		local ang = aunwrap(data.angle)
+		checkvector(ang)
+
+		checkluatype(data.teleportdistance, TYPE_NUMBER)
+		if data.teleportdistance > 0 and not haspermission(instance, ent, "entities.setPos") then
+			SF.Throw("Shadow force property 'teleportdistance' higher than 0 requires 'entities.setPos' permission access", 2)
+		end
+
+		checkluatype(data.secondstoarrive, TYPE_NUMBER)
+		if data.secondstoarrive < 1e-3 then SF.Throw("Shadow force property 'secondstoarrive' cannot be lower than 0.001", 2) end
+		checkluatype(data.dampfactor, TYPE_NUMBER)
+		if data.dampfactor > 1 or data.dampfactor < 0 then SF.Throw("Shadow force property 'dampfactor' cannot be higher than 1 or lower than 0", 2) end
+		checkluatype(data.maxangular, TYPE_NUMBER)
+		checkluatype(data.maxangulardamp, TYPE_NUMBER)
+		checkluatype(data.maxspeed, TYPE_NUMBER)
+		checkluatype(data.maxspeeddamp, TYPE_NUMBER)
+
+		ent.customShadowForce = {
+			pos = pos,
+			angle = ang,
+			secondstoarrive = data.secondstoarrive,
+			dampfactor = data.dampfactor,
+			maxangular = data.maxangular,
+			maxangulardamp = data.maxangulardamp,
+			maxspeed = data.maxspeed,
+			maxspeeddamp = data.maxspeeddamp,
+			teleportdistance = data.teleportdistance,
+		}
+		ent:EnableCustomPhysics(2)
+	end
 end
 
 --- Set the angular velocity of an object
@@ -217,7 +269,7 @@ end
 -- @param Vector vec The force vector
 function ents_methods:applyForceCenter(vec)
 	local ent = getent(self)
-	local vec = vunwrap(vec)
+	vec = vunwrap(vec)
 	checkvector(vec)
 
 	local phys = ent:GetPhysicsObject()
@@ -234,10 +286,9 @@ end
 function ents_methods:applyForceOffset(force, position)
 	local ent = getent(self)
 
-	local force = vunwrap(force)
-	local position = vunwrap(position)
-
+	force = vunwrap(force)
 	checkvector(force)
+	position = vunwrap(position)
 	checkvector(position)
 
 	local phys = ent:GetPhysicsObject()
@@ -253,7 +304,7 @@ end
 function ents_methods:applyAngForce(ang)
 	local ent = getent(self)
 
-	local ang = aunwrap(ang)
+	ang = aunwrap(ang)
 	checkvector(ang)
 
 	local phys = ent:GetPhysicsObject()
@@ -293,7 +344,7 @@ end
 function ents_methods:applyTorque(torque)
 	local ent = getent(self)
 
-	local torque = vunwrap(torque)
+	torque = vunwrap(torque)
 	checkvector(torque)
 
 	local phys = ent:GetPhysicsObject()
@@ -353,16 +404,11 @@ end
 
 --- Sets whether an entity's shadow should be drawn
 -- @param boolean draw Whether the shadow should draw
--- @param Player? ply Optional player argument to set only for that player. Can also be table of players.
-function ents_methods:setDrawShadow(draw, ply)
+function ents_methods:setDrawShadow(draw)
 	local ent = getent(self)
 	checkpermission(instance, ent, "entities.setRenderProperty")
-
-	if ply then
-		sendRenderPropertyToClient(ply, ent, 9, draw and true or false)
-	else
-		ent:DrawShadow(draw and true or false)
-	end
+	checkluatype(draw, TYPE_BOOL)
+	ent:DrawShadow(draw)
 end
 
 --- Sets the entity's position. No interpolation will occur clientside, use physobj.setPos to have interpolation.
@@ -370,7 +416,7 @@ end
 function ents_methods:setPos(vec)
 	local ent = getent(self)
 
-	local vec = vunwrap(vec)
+	vec = vunwrap(vec)
 	checkpermission(instance, ent, "entities.setPos")
 
 	ent:SetPos(SF.clampPos(vec))
@@ -381,7 +427,7 @@ end
 function ents_methods:setAngles(ang)
 	local ent = getent(self)
 
-	local ang = aunwrap(ang)
+	ang = aunwrap(ang)
 	checkpermission(instance, ent, "entities.setAngles")
 
 	ent:SetAngles(ang)
@@ -392,7 +438,7 @@ end
 function ents_methods:setVelocity(vel)
 	local ent = getent(self)
 
-	local vel = vunwrap(vel)
+	vel = vunwrap(vel)
 	checkvector(vel)
 
 	checkpermission(instance, ent, "entities.setVelocity")
@@ -530,7 +576,7 @@ function ents_methods:setInertia(vec)
 	local phys = ent:GetPhysicsObject()
 	if not phys:IsValid() then SF.Throw("Physics object is invalid", 2) end
 
-	local vec = vunwrap(vec)
+	vec = vunwrap(vec)
 	checkvector(vec)
 	vec[1] = math.Clamp(vec[1], 1, 100000)
 	vec[2] = math.Clamp(vec[2], 1, 100000)
@@ -669,7 +715,7 @@ function ents_methods:enableSphere(enabled, radius)
 	
 			-- https://github.com/daveth/makespherical/blob/80b702ba04ba4b64d6c378df8d405b2c113dec53/lua/weapons/gmod_tool/stools/makespherical.lua#L117
 			local info = {
-				obbcenter = ent.obbcenter,							
+				obbcenter = ent.obbcenter,
 				noradius = radius,
 				radius = radius,
 				mass = mass,
@@ -688,7 +734,7 @@ function ents_methods:enableSphere(enabled, radius)
 	end
 
 	-- New physobject after applying spherical collisions
-	local phys = ent:GetPhysicsObject()
+	phys = ent:GetPhysicsObject()
 	phys:SetMass(mass)
 	phys:EnableMotion(ismove)
 	phys:Wake()
@@ -713,7 +759,6 @@ end
 --- Gets a table of all constrained entities to each other
 -- @param table? filter Optional constraint type filter table where keys are the type name and values are 'true'. "Wire" and "Parent" are used for wires and parents.
 function ents_methods:getAllConstrained(filter)
-	local ent = getent(self)
 	if filter ~= nil then checkluatype(filter, TYPE_TABLE) end
 
 	local entity_lookup = {}
@@ -724,7 +769,7 @@ function ents_methods:getAllConstrained(filter)
 		if ent:IsValid() then
 			entity_table[#entity_table + 1] = owrap(ent)
 			local constraints = constraint.GetTable(ent)
-			for k, v in pairs(constraints) do
+			for _, v in pairs(constraints) do
 				if not filter or filter[v.Type] then
 					if v.Ent1 then recursive_find(v.Ent1) end
 					if v.Ent2 then recursive_find(v.Ent2) end
@@ -733,22 +778,22 @@ function ents_methods:getAllConstrained(filter)
 			if not filter or filter.Parent then
 				local parent = ent:GetParent()
 				if parent then recursive_find(parent) end
-				for k, child in pairs(ent:GetChildren()) do
+				for _, child in pairs(ent:GetChildren()) do
 					recursive_find(child)
 				end
 			end
 			if not filter or filter.Wire then
 				if istable(ent.Inputs) then
-					for k, v in pairs(ent.Inputs) do
+					for _, v in pairs(ent.Inputs) do
 						if isentity(v.Src) and v.Src:IsValid() then
 							recursive_find(v.Src)
 						end
 					end
 				end
 				if istable(ent.Outputs) then
-					for k, v in pairs(ent.Outputs) do
+					for _, v in pairs(ent.Outputs) do
 						if istable(v.Connected) then
-							for k, v in pairs(v.Connected) do
+							for _, v in pairs(v.Connected) do
 								if isentity(v.Entity) and v.Entity:IsValid() then
 									recursive_find(v.Entity)
 								end
@@ -759,7 +804,7 @@ function ents_methods:getAllConstrained(filter)
 			end
 		end
 	end
-	recursive_find(eunwrap(self))
+	recursive_find(getent(self))
 
 	return entity_table
 end
