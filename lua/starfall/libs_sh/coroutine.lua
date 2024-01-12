@@ -19,12 +19,20 @@ local thread_meta, wrap, unwrap = instance.Types.thread, instance.Types.thread.W
 
 
 local coroutines = {}
+local coroutineStackLevels = {}
+
+local function cleanupThread(thread)
+	local unwrapped = unwrap(coroutines[thread])
+	coroutineStackLevels[unwrapped.thread] = nil
+	coroutineStackLevels[unwrapped.func] = nil
+	unwrapped.thread = nil
+	unwrapped.func = nil
+	coroutines[thread] = nil
+end
+
 instance:AddHook("deinitialize", function()
-	for thread, wrapped in pairs(coroutines) do
-		local unwrapped = unwrap(wrapped)
-		unwrapped.thread = nil
-		unwrapped.func = nil
-		coroutines[thread] = nil
+	for thread in pairs(coroutines) do
+		cleanupThread(thread)
 	end
 end)
 instance.canyield = true
@@ -33,27 +41,27 @@ instance.canyield = true
 local function createCoroutine(func)
 	-- Make sure we're not in a coroutine creation infinite loop
 	local curthread = coroutine.running()
-	local stacklevel
-	if curthread then
-		stacklevel = unwrap(coroutines[curthread]).stacklevel + 1
-		if stacklevel == 100 then SF.Throw("Coroutine stack overflow!", 1) end
-	else
-		stacklevel = 0
-	end
+	local stacklevel = math.max(
+		curthread and coroutineStackLevels[curthread] and coroutineStackLevels[curthread]+1 or 0,
+		coroutineStackLevels[func] and coroutineStackLevels[func]+1 or 0
+	)
+	if stacklevel == 128 then SF.Throw("Coroutine stack overflow!", 3) end
 
 	-- Can't use coroutine.create, because of a bug that prevents halting the program when it exceeds quota
 	-- Hack to get the coroutine from a wrapped function. Necessary because coroutine.create is not available
 	local wrappedFunc = coroutine.wrap(function()
 		local thread = coroutine.running()
-		local function cleanupThread(...) coroutines[thread] = nil return ... end
-		return cleanupThread(func(coroutine.yield(thread)))
+		local function cleanup(...) cleanupThread(thread) return ... end
+		return cleanup(func(coroutine.yield(thread)))
 	end)
 
 	local thread = wrappedFunc()
 
-	local wrappedThread = wrap({ thread = thread, func = wrappedFunc, stacklevel = stacklevel })
+	local wrappedThread = wrap({ thread = thread, func = wrappedFunc })
 
 	coroutines[thread] = wrappedThread
+	coroutineStackLevels[thread] = stacklevel
+	coroutineStackLevels[wrappedFunc] = stacklevel
 
 	return wrappedFunc, wrappedThread
 end
@@ -89,8 +97,8 @@ end
 -- @param ... Optional parameters that will be returned to the main thread
 -- @return ... Any values passed to the coroutine
 function coroutine_library.yield(...)
-	local curthread = coroutine.running()
-	if curthread and coroutines[curthread] and instance.canyield then
+	local thread = coroutine.running()
+	if thread and coroutines[thread] and instance.canyield then
 		return coroutine.yield(...)
 	else
 		SF.Throw("attempt to yield across C-call boundary", 2)
@@ -115,8 +123,8 @@ end
 --- Suspends the coroutine for a number of seconds. Note that the coroutine will not resume automatically, but any attempts to resume the coroutine while it is waiting will not resume the coroutine and act as if the coroutine suspended itself immediately.
 -- @param number time Time in seconds to suspend the coroutine
 function coroutine_library.wait(time)
-	local curthread = coroutine.running()
-	if curthread and coroutines[curthread] then
+	local thread = coroutine.running()
+	if thread and coroutines[thread] then
 		checkluatype (time, TYPE_NUMBER)
 		coroutine.wait(time)
 	else
