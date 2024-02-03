@@ -57,6 +57,8 @@ local ang_meta, awrap, aunwrap = instance.Types.Angle, instance.Types.Angle.Wrap
 local vec_meta, vwrap, vunwrap = instance.Types.Vector, instance.Types.Vector.Wrap, instance.Types.Vector.Unwrap
 local mtx_meta, mwrap, munwrap = instance.Types.VMatrix, instance.Types.VMatrix.Wrap, instance.Types.VMatrix.Unwrap
 
+local VECTOR_PLAYER_COLOR_DISABLED = Vector(-1, -1, -1)
+
 local getent
 instance:AddHook("initialize", function()
 	getent = instance.Types.Entity.GetEntity
@@ -293,15 +295,63 @@ else
 		end
 	end
 
+	local render_GetColorModulation, render_GetBlend = render.GetColorModulation, render.GetBlend
+	local render_SetColorModulation, render_SetBlend = render.SetColorModulation, render.SetBlend
+
 	--- Manually draws a hologram, requires a 3d render context
 	-- @client
-	function hologram_methods:draw()
+	-- @param bool? noTint If true, renders the hologram without its color and opacity. The default is for holograms to render with color or opacity, so use this argument if you need that behavior.
+	function hologram_methods:draw(noTint)
 		if not instance.data.render.isRendering then SF.Throw("Not in rendering hook.", 2) end
 
 		local holo = getholo(self)
 		holo:SetupBones()
-		holo:DrawModel()
+
+		if noTint then
+			holo:DrawModel()
+		else
+			local cr, cg, cb, ca = holo:GetColor4Part()
+			local ocr, ocg, ocb = render_GetColorModulation()
+			local oca = render_GetBlend()
+
+			render_SetColorModulation(cr / 255, cg / 255, cb / 255)
+			render_SetBlend(ca / 255)
+
+			holo:DrawModel()
+
+			render_SetColorModulation(ocr, ocg, ocb)
+			render_SetBlend(oca)
+		end
 	end
+end
+
+--- Sets the player color of a hologram
+-- The part of the model that is colored is determined by the model itself, and is different for each model
+-- The format is Vector(r,g,b), and each color should be between 0 and 1
+-- @shared
+-- @param Vector? color The player color to use, or nil to disable
+function hologram_methods:setPlayerColor(color)
+	local holo = getholo(self)
+
+	checkpermission(instance, holo, "hologram.setRenderProperty")
+
+	color = color ~= nil and vunwrap(color) or VECTOR_PLAYER_COLOR_DISABLED
+
+	holo:SetPlayerColorInternal(color)
+end
+
+--- Gets the player color of a hologram
+-- The part of the model that is colored is determined by the model itself, and is different for each model
+-- The format is Vector(r,g,b), and each color should be between 0 and 1
+-- @shared
+-- @return Vector? color The player color to use, or nil if disabled
+function hologram_methods:getPlayerColor()
+	local holo = getholo(self)
+	local color = holo:GetPlayerColorInternal()
+
+	if color == VECTOR_PLAYER_COLOR_DISABLED then return nil end
+
+	return vwrap(color)
 end
 
 --- Updates a clip plane
