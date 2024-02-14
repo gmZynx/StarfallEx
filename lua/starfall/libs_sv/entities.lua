@@ -515,6 +515,7 @@ function ents_methods:use(usetype, value)
     checkpermission(instance, ent, "entities.use")
     if usetype~=nil then checkluatype(usetype, TYPE_NUMBER) end
     if value~=nil then checkluatype(value, TYPE_NUMBER) end
+	if ent:IsVehicle() then SF.Throw("Target is a vehicle!", 2) end
     ent:Use(instance.player, instance.entity, usetype, value)
 end
 
