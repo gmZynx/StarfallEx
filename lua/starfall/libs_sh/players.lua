@@ -383,9 +383,14 @@ end
 -- For bots, this will return 90071996842377216 (equivalent to STEAM_0:0:0) for the first bot to join, and adds 1 to the id for the bot id.
 -- Returns no value for bots clientside.
 -- @shared
+-- @param boolean? owner Return the actual game owner account id
 -- @return string SteamID64 aka Community ID
-function player_methods:getSteamID64()
-	return getply(self):SteamID64()
+function player_methods:getSteamID64(owner)
+	if owner then
+		return getply(self):OwnerSteamID64()
+	else
+		return getply(self):SteamID64()
+	end
 end
 
 --- Returns the player's current team
@@ -901,7 +906,7 @@ if CLIENT then
 	-- @param number? rate Optional float (Default 1), the playback rate of the animation
 	-- @param boolean? loop Optional boolean (Default false), should the animation loop
 	-- @param boolean? auto_advance Optional boolean (Default true), should the animation handle advancing itself
-	-- @param string|number|nil? act Optional number or string name (Default sequence value), the activity the player should use
+	-- @param number|string|nil act Optional number or string name (Default sequence value), the activity the player should use
 	function player_methods:setAnimation(seq, progress, rate, loop, auto_advance, act)
 		local ply = getply(self)
 		if instance.owner ~= ply then checkpermission(instance, ply, "entities.setRenderProperty") end
