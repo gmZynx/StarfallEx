@@ -137,7 +137,7 @@ function ENT:Error(err)
 		msg = string.sub(msg, 1, newline - 1)
 	end
 
-	hook.Run("StarfallError", self, self.owner, CLIENT and LocalPlayer() or false, self.sfdata.mainfile, msg, traceback)
+	hook.Run("StarfallError", self, self.owner, CLIENT and LocalPlayer() or false, self.sfdata and self.sfdata.mainfile or "", msg, traceback)
 	SF.SendError(self, msg, traceback)
 
 	if self.instance then

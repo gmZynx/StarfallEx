@@ -86,18 +86,21 @@ function SF.DefaultCode()
 	elseif file.Exists("starfall/default.lua", "DATA") then
 		return file.Read("starfall/default.lua", "DATA")
 	else
-		local code = [=[--@name
---@author
+		local code = [=[
+--@name Untitled
+--@author ]=] .. string.gsub(LocalPlayer():Nick(), "[^%w%s%p_]", "") ..[=[
+
 --@shared
 
 --[[
 Starfall Scripting Environment
 
-Github: https://github.com/thegrb93/StarfallEx
-Reference Page: http://thegrb93.github.io/Starfall/
+StarfallEx Addon: https://github.com/thegrb93/StarfallEx
+Documentation: http://thegrb93.github.io/StarfallEx
 
-Default Keyboard shortcuts: https://github.com/ajaxorg/ace/wiki/Default-Keyboard-Shortcuts
-]]]=]
+This default code can be edited via the 'default.txt' file
+]]
+]=]
 		code = string.gsub(code, "\r", "")
 		file.Write("starfall/default.txt", code)
 		return code
@@ -2080,7 +2083,7 @@ function PANEL:UpdatePlayers(players)
 			local svtotal = 0
 			local cltotal = 0
 			for instance, _ in pairs(SF.playerInstances[ply] or {}) do
-				svtotal = svtotal + instance.entity:GetNWInt("CPUus")
+				svtotal = svtotal + (instance.entity:IsValid() and instance.entity:GetNWInt("CPUus") or 0)
 				cltotal = cltotal + instance.cpu_average
 			end
 			cpuServerText:SetText(string.format("SV CPU: %3.1f us", svtotal))
