@@ -165,6 +165,13 @@ if SERVER then
 	-- @param boolean teamChat True if team chat
 	-- @return string? New text. "" to stop from displaying. Nil to keep original.
 	add("PlayerSay", nil, nil, returnOnlyOnYourself, true)
+	
+	-- Serverside implementation of playerchat
+	gameevent.Listen("player_say")
+	add("player_say", "playerchat", function(instance, data)
+		local ply = Player(data.userid)
+		return true, {instance.WrapObject(ply), data.text, data.teamonly, not ply:Alive()}
+	end)
 
 	--- Called when a players sprays their logo
 	-- @name PlayerSpray
@@ -262,15 +269,21 @@ else
 	-- @client
 	add("FinishChat")
 
-	--- Called when a player's chat message is printed to the chat window
+	--- Called when a chat message is printed your chat window (chip owner only)
 	-- @name PlayerChat
 	-- @class hook
-	-- @client
+	-- @shared
 	-- @param Player ply Player that said the message
 	-- @param string text The message
 	-- @param boolean team Whether the message was team only
 	-- @param boolean isdead Whether the message was send from a dead player
-	add("OnPlayerChat", "playerchat")
+	-- @return boolean Return true to hide the message. Can only be done for the owner of the chip
+	add("OnPlayerChat", "playerchat", function(instance, ply, text, teamChat, isDead)
+		if instance.player~=LocalPlayer() then return false end
+		return true, {instance.WrapObject(ply), text, teamChat, isDead}
+	end, function(instance, ret)
+		if ret[1] and instance.player == LocalPlayer() and ret[2] then return true end
+	end)
 
 	--- Called when the player's chat box text changes.
 	-- Requires the 'input' permission.
@@ -440,6 +453,7 @@ end)
 -- @class hook
 -- @shared
 -- @param Entity ent Entity being removed
+-- @param boolean isSnapshot If clientside, will be true if the entity isn't actually removed
 add("EntityRemoved")
 
 --- Called when an entity is broken

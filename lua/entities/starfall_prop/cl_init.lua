@@ -53,20 +53,17 @@ function ENT:GetRenderMesh()
 	end
 end
 
-function ENT:OnRemove()
-	-- This is required because snapshots can cause OnRemove to run even if it wasn't removed.
+function ENT:OnRemove(fullsnapshot)
+	if fullsnapshot then return end
 	local mesh = self.rendermesh
 	if mesh then
-		timer.Simple(0, function()
-			if not IsValid(self) then
-				mesh:Destroy()
-			end
-		end)
+		mesh:Destroy()
 	end
 end
 
 net.Receive("starfall_custom_prop", function()
 	local index = net.ReadUInt(16)
+	local creationindex = net.ReadUInt(32)
 	local self, data
 
 	local function applyData()
@@ -110,7 +107,7 @@ net.Receive("starfall_custom_prop", function()
 		self.rendermeshloaded = true
 	end
 
-	SF.WaitForEntity(index, function(e)
+	SF.WaitForEntity(index, creationindex, function(e)
 		if e and e:GetClass()=="starfall_prop" then
 			self = e
 			applyData()

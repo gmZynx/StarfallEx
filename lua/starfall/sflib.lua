@@ -89,33 +89,41 @@ hook.Add("InitPostEntity","SF_SanitizeTypeMetatables",function()
 	end
 end)
 
+local removedHooks = setmetatable({}, {__index=function(t,k) local r={} t[k]=r return r end})
+hook.Add("EntityRemoved","SF_CallOnRemove",function(ent, fullsnapshot)
+	if fullsnapshot then return end
+	local hooks = removedHooks[ent]
+	if hooks then
+		for k, v in pairs(hooks) do
+			v(ent)
+		end
+		removedHooks[ent] = nil
+	end
+end)
+function SF.CallOnRemove(ent, key, func)
+	removedHooks[ent][key] = func
+end
+function SF.RemoveCallOnRemove(ent, key)
+	removedHooks[ent][key] = nil
+	if next(removedHooks[ent])==nil then removedHooks[ent] = nil end
+end
+
 -------------------------------------------------------------------------------
 -- Declare Basic Starfall Types
 -------------------------------------------------------------------------------
 
 -- Returns a class that manages a table of entity keys
-function SF.EntityTable(key, destructor, dontwait)
+function SF.EntityTable(key, destructor)
 	return setmetatable({}, {
 		__newindex = function(t, e, v)
 			rawset(t, e, v)
 			if e ~= SF.Superuser then
-				if dontwait then
-					e:CallOnRemove("SF_" .. key, function()
-						if t[e] then
-							if destructor then destructor(e, v) end
-							t[e] = nil
-						end
-					end)
-				else
-					e:CallOnRemove("SF_" .. key, function()
-						timer.Simple(0, function()
-							if t[e] and not IsValid(e) then
-								if destructor then destructor(e, v) end
-								t[e] = nil
-							end
-						end)
-					end)
-				end
+				SF.CallOnRemove(e, key, function()
+					if t[e] then
+						if destructor then destructor(e, v) end
+						t[e] = nil
+					end
+				end)
 			end
 		end
 	})
@@ -294,23 +302,22 @@ SF.EntManager = {
 			if not self.nocallonremove then
 				local function sf_on_remove() self:onremove(instance, ent) end
 				ent.sf_on_remove = sf_on_remove
-				ent:CallOnRemove("starfall_entity_onremove", sf_on_remove)
+				SF.CallOnRemove(ent, "entmanager", sf_on_remove)
 			end
 
 			self.entsByInstance[instance][ent] = true
 			self:free(instance.player, -1)
 		end,
 		remove = function(self, instance, ent)
-			if IsValid(ent) then
-				if self.nocallonremove then
-					self:onremove(instance, ent)
-				else
-					-- The die function is called the next frame after 'Remove' which is too slow so call it ourself
-					ent:RemoveCallOnRemove("starfall_entity_onremove")
-					ent.sf_on_remove()
-				end
-				ent:Remove()
+			if not IsValid(ent) then return end
+			if self.nocallonremove then
+				self:onremove(instance, ent)
+			else
+				-- The die function is called the next frame after 'Remove' which is too slow so call it ourself
+				SF.RemoveCallOnRemove(ent, "entmanager")
+				ent.sf_on_remove()
 			end
+			ent:Remove()
 		end,
 		onremove = function(self, instance, ent)
 			self.entsByInstance[instance][ent] = nil
@@ -1087,21 +1094,27 @@ end
 
 function SF.EntIsReady(ent)
 	if ent:IsWorld() then return true end
-	if IsValid(ent) then
-		-- https://github.com/Facepunch/garrysmod-issues/issues/3127
-		local class = ent:GetClass()
-		if class=="player" then
-			return ent:IsPlayer()
-		else
-			local n = next(baseclass.Get(class))
-			return n==nil or ent[n]~=nil
-		end
+	if not IsValid(ent) then return false end
+
+	-- https://github.com/Facepunch/garrysmod-issues/issues/3127
+	local class = ent:GetClass()
+	if class=="player" then
+		return ent:IsPlayer()
+	elseif class=="starfall_processor" then
+		return ent.SetupFiles~=nil
+	elseif class=="starfall_hologram" then
+		return ent.SetClip~=nil
+	elseif class=="starfall_prop" then
+		return ent.BuildPhysics~=nil
+	elseif class=="starfall_screen" or class=="starfall_hud" then
+		return ent:IsScripted()
+	else
+		return true
 	end
-	return false
 end
 
 local waitingConditions = {}
-function SF.WaitForConditions(callback, timeout)
+function SF.WaitForConditions(callback, timeoutcallback, timeout)
 	if not callback() then
 		if #waitingConditions == 0 then
 			hook.Add("Think", "SF_WaitingForConditions", function()
@@ -1112,7 +1125,7 @@ function SF.WaitForConditions(callback, timeout)
 					if v.callback() then
 						table.remove(waitingConditions, i)
 					elseif time>v.timeout then
-						v.callback(true)
+						if v.timeoutcallback then v.timeoutcallback() end
 						table.remove(waitingConditions, i)
 					else
 						i = i + 1
@@ -1121,20 +1134,18 @@ function SF.WaitForConditions(callback, timeout)
 				if #waitingConditions == 0 then hook.Remove("Think", "SF_WaitingForConditions") end
 			end)
 		end
-		waitingConditions[#waitingConditions+1] = {callback = callback, timeout = CurTime()+timeout}
+		waitingConditions[#waitingConditions+1] = {callback = callback, timeoutcallback = timeoutcallback, timeout = CurTime()+timeout}
 	end
 end
 
-function SF.WaitForEntity(index, callback)
-	SF.WaitForConditions(function(timeout)
+function SF.WaitForEntity(index, creationIndex, callback)
+	SF.WaitForConditions(function()
 		local ent=Entity(index)
-		if SF.EntIsReady(ent) then
+		if SF.EntIsReady(ent) and ent:GetCreationID()==creationIndex then
 			callback(ent)
 			return true
-		elseif timeout then
-			callback(nil)
 		end
-	end, 10)
+	end, callback, 10)
 end
 
 local playerinithooks = {}

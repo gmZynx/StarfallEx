@@ -13,24 +13,6 @@ function ENT:Initialize()
 	self.reuploadOnReload = false
 end
 
-function ENT:OnRemove()
-	-- This is required because snapshots can cause OnRemove to run even if it wasn't removed.
-	local instance = self.instance
-	if instance then
-		instance:runScriptHook("removed")
-
-		timer.Simple(0, function()
-			if not IsValid(self) then
-				instance:deinitialize()
-				self.instance = nil
-			end
-		end)
-	end
-
-	-- This should remove the hook if it existed
-	self:SetReuploadOnReload(false)
-end
-
 function ENT:GetOverlayText()
 	local state = self:GetNWInt("State", 1)
 	local clientstr, serverstr
@@ -157,29 +139,40 @@ end)
 net.Receive("starfall_processor_download", function(len)
 	net.ReadStarfall(nil, function(ok, sfdata)
 		if ok then
-			SF.WaitForConditions(function(timedout)
-				local proc, owner = Entity(sfdata.procindex), Entity(sfdata.ownerindex)
-				if SF.EntIsReady(proc) and proc:GetClass()=="starfall_processor" and SF.EntIsReady(owner) and (owner:IsPlayer() or owner:IsWorld()) then
-					sfdata.owner = owner
-					proc:Destroy()
-					proc:SetupFiles(sfdata)
-					return true
-				end
-			end, 10)
+			local proc, owner
+			local function setup()
+				sfdata.proc = proc
+				sfdata.owner = owner
+				proc:SetupFiles(sfdata)
+			end
+
+			if sfdata.ownerindex == 0 then
+				owner = game.GetWorld()
+			else
+				SF.WaitForEntity(sfdata.ownerindex, sfdata.ownercreateindex, function(e)
+					owner = e if proc and owner then setup() end
+				end)
+			end
+			SF.WaitForEntity(sfdata.procindex, sfdata.proccreateindex, function(e)
+				proc = e if proc and proc:GetClass()=="starfall_processor" and owner then setup() end
+			end)
 		end
 	end)
 end)
 
 net.Receive("starfall_processor_link", function()
-	local componenti = net.ReadUInt(16)
-	local proci = net.ReadUInt(16)
-	SF.WaitForConditions(function(timedout)
-		local component, proc = Entity(componenti), Entity(proci)
-		if SF.EntIsReady(component) and SF.EntIsReady(proc) then
-			SF.LinkEnt(component, proc)
-			return true
-		end
-	end, 10)
+	local componenti, componentci = net.ReadUInt(16), net.ReadUInt(32)
+	local proci, procci = net.ReadUInt(16), net.ReadUInt(32)
+	local component, proc
+
+	SF.WaitForEntity(componenti, componentci, function(e)
+		component = e if component and (proc or proci==0) then SF.LinkEnt(component, proc) end
+	end)
+	if proci~=0 then
+		SF.WaitForEntity(proci, procci, function(e)
+			proc = e if component and proc then SF.LinkEnt(component, proc) end
+		end)
+	end
 end)
 
 net.Receive("starfall_processor_kill", function()
