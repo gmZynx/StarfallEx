@@ -18,12 +18,20 @@ ENT.States          = {
 
 local IsValid = FindMetaTable("Entity").IsValid
 
-function ENT:Compile()
+function ENT:Compile(sfdata)
 	self:Destroy()
+	if sfdata then
+		self.sfdata = sfdata
+		self.owner = sfdata.owner
+		sfdata.proc = self
+	else
+		sfdata = self.sfdata
+	end
+
+	if not (sfdata and sfdata.files and sfdata.files[sfdata.mainfile]) then return end
 	self.error = nil
 
-	if not (self.sfdata and self.sfdata.files and self.sfdata.files[self.sfdata.mainfile]) then return end
-	local ok, instance = SF.Instance.Compile(self.sfdata.files, self.sfdata.mainfile, self.owner, self)
+	local ok, instance = SF.Instance.Compile(sfdata.files, sfdata.mainfile, self.owner, self)
 	if not ok then self:Error(instance) return end
 
 	if instance.ppdata.scriptnames and instance.mainfile and instance.ppdata.scriptnames[instance.mainfile] then
@@ -37,7 +45,6 @@ function ENT:Compile()
 	else
 		self.author = nil
 	end
-
 
 	self.instance = instance
 	instance.runOnError = function(err)
@@ -84,22 +91,8 @@ function ENT:Destroy()
 	end
 end
 
-function ENT:OnRemove(fullsnapshot)
-	if fullsnapshot then return end
-	self:Destroy()
-
-	-- This should remove the hook if it existed
-	if CLIENT then self:SetReuploadOnReload(false) end
-end
-
 function ENT:SetupFiles(sfdata)
-	self:Destroy()
-
-	self.sfdata = sfdata
-	self.owner = sfdata.owner
-	sfdata.proc = self
-
-	self:Compile()
+	self:Compile(sfdata)
 
 	if SERVER and self.instance then
 		self.sfsenddata = self:GetSendData()
@@ -129,32 +122,21 @@ end
 
 function ENT:Error(err)
 	self.error = err
-
-	local msg = err.message
-	local traceback = err.traceback
-
-	if SERVER then
-		self:SetNWInt("State", self.States.Error)
-		self:SetColor(Color(255, 0, 0, 255))
-		self:SetDTString(0, traceback or msg)
-	end
-
-	local newline = string.find(msg, "\n")
-	if newline then
-		msg = string.sub(msg, 1, newline - 1)
-	end
-
-	hook.Run("StarfallError", self, self.owner, CLIENT and LocalPlayer() or false, self.sfdata and self.sfdata.mainfile or "", msg, traceback)
-	SF.SendError(self, msg, traceback)
-
 	if self.instance then
 		self.instance:deinitialize()
 		self.instance = nil
 	end
 
-	for inst, _ in pairs(SF.allInstances) do
-		inst:runScriptHook("starfallerror", inst.Types.Entity.Wrap(self), inst.Types.Player.Wrap(SERVER and self.owner or LocalPlayer()), msg)
+	local msg = string.match(err.message, "[^\n]+") or ""
+	local traceback = err.traceback
+
+	if SERVER then
+		self:SetNWInt("State", self.States.Error)
+		self:SetColor(Color(255, 0, 0, 255))
 	end
+
+	hook.Run("StarfallError", self, self.owner, CLIENT and LocalPlayer() or false, self.sfdata and self.sfdata.mainfile or "", msg, traceback)
+	SF.SendError(self, msg, traceback)
 end
 
 local function MenuOpen( ContextMenu, Option, Entity, Trace )

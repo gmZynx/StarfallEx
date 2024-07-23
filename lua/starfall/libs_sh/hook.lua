@@ -488,7 +488,7 @@ end)
 -- @class hook
 -- @shared
 -- @param Entity ent Entity being removed
--- @param boolean isSnapshot If clientside, will be true if the entity isn't actually removed
+-- @param boolean fullupdate If clientside, will be true if the entity was removed by a fullupdate
 add("EntityRemoved")
 
 --- Called when an entity is broken
@@ -566,6 +566,17 @@ add("StartEntityDriving")
 -- @class hook
 -- @shared
 add("Tick")
+
+--- Called when starfall chip errors
+-- @name StarfallError
+-- @class hook
+-- @shared
+-- @param Entity ent Starfall chip that errored
+-- @param Player ply Who's fault it errored. Owner of the chip if on server, or player that the script errored if on client
+-- @param string err Error message
+add("StarfallError", nil, function(instance, ent, owner, errply, _, err)
+	return true, {instance.WrapObject(ent), instance.WrapObject(errply or owner), err}
+end)
 
 -- Game Events
 
@@ -763,14 +774,6 @@ end
 -- @class hook
 -- @server
 -- @param Player ply The player that initialized
-
---- Called when starfall chip errors
--- @name StarfallError
--- @class hook
--- @shared
--- @param Entity ent Starfall chip that errored
--- @param Player ply Owner of the chip on server or player that script errored for on client
--- @param string err Error message
 
 --- Called when a component is linked to the starfall
 -- @name ComponentLinked

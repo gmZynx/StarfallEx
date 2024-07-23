@@ -285,7 +285,7 @@ local soundsByEntity = SF.EntityTable("emitSoundsByEntity", function(e, t)
 	for snd, _ in pairs(t) do
 		e:StopSound(snd)
 	end
-end)
+end, true)
 
 local sound_library = instance.Libraries.sound
 
@@ -939,6 +939,14 @@ function ents_methods:getQuotaMax()
 	else
 		SF.Throw("The entity isn't a starfall or expression2 chip", 2)
 	end
+end
+
+--- Return if the entity has a starfall instance
+-- @shared
+-- @return boolean if has starfall instance
+function ents_methods:hasInstance()
+	local ent = getent(self)
+	return ent.Starfall and ent.instance~=nil
 end
 
 if SERVER then
