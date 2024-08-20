@@ -113,7 +113,7 @@ if SERVER then
 end
 
 local function getply(self)
-	local ent = unwrap(self)
+	local ent = player_meta.sf2sensitive[self]
 	if IsValid(ent) then
 		return ent
 	else
@@ -346,6 +346,13 @@ end
 -- @return boolean True if player belongs to group
 function player_methods:isUserGroup(group)
 	return getply(self):IsUserGroup(group)
+end
+
+--- Returns the usergroup of the player
+-- @shared
+-- @return string Usergroup, "user" if player has no group
+function player_methods:getUserGroup()
+	return getply(self):GetUserGroup()
 end
 
 --- Returns the player's current ping
@@ -1122,6 +1129,13 @@ if CLIENT then
 
 		if not anim then return 0 end
 		return (anim.progress * anim.range + anim.min) * anim.duration
+	end
+
+	--- Returns whether the player's player model will be drawn at the time the function is called.
+	-- @client
+	-- @return boolean True if the player's playermodel is visible
+	function player_methods:shouldDrawLocalPlayer()
+		return getply(self):ShouldDrawLocalPlayer()
 	end
 end
 

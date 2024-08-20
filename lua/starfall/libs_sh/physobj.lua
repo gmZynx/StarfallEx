@@ -23,7 +23,7 @@ end
 -- @name PhysObj
 -- @class type
 -- @libtbl physobj_methods
-SF.RegisterType("PhysObj", true, false)
+SF.RegisterType("PhysObj", true, false, FindMetaTable("PhysObj"))
 
 
 return function(instance)
@@ -321,7 +321,7 @@ if SERVER then
 		local phys = unwrap(self)
 		checkpermission(instance, phys:GetEntity(), "entities.applyForce")
 
-		phys:AddAngleVelocity(angvel - phys:GetAngleVelocity())
+		phys:SetAngleVelocity(angvel)
 	end
 
 	--- Applies a angular velocity to an object
