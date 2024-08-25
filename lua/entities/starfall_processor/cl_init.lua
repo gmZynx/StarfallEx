@@ -130,7 +130,7 @@ hook.Add("StarfallError", "StarfallErrorReport", function(_, owner, client, main
 	if not IsValid(owner) then return end
 	local local_player = LocalPlayer()
 	if owner == local_player then
-		if not client or client == owner then
+		if client:IsWorld() or client == owner then
 			SF.AddNotify(owner, message, "ERROR", 7, "ERROR1")
 		elseif client then
 			if should_notify then
@@ -151,7 +151,7 @@ end)
 
 net.Receive("starfall_processor_download", function(len)
 	net.ReadStarfall(nil, function(ok, sfdata, err)
-		if ok then
+		if ok and IsValid(sfdata.proc) and (IsValid(sfdata.owner) or IsWorld(sfdata.owner)) then
 			sfdata.proc:SetupFiles(sfdata)
 		elseif IsValid(sfdata.proc) and IsValid(sfdata.owner) then
 			sfdata.proc.owner = sfdata.owner

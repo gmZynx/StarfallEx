@@ -237,12 +237,22 @@ if CLIENT then
 		local ent = getent(self)
 		if not ent.IsSFHologram and not ent.IsSFProp then SF.Throw("The entity isn't a hologram or custom-prop", 2) end
 
-
 		checkpermission(instance, ent, "entities.setRenderProperty")
 
 		mins, maxs = vunwrap(mins), vunwrap(maxs)
 		ent:SetRenderBounds(mins, maxs)
 		ent.sf_userrenderbounds = {mins, maxs}
+	end
+
+	--- Returns render bounds of the entity as local vectors
+	-- If the render bounds are not inside players view, the entity will not be drawn!
+	-- @client
+	-- @return Vector The minimum vector of the bounds
+	-- @return Vector The maximum vector of the bounds
+	function ents_methods:getRenderBounds()
+		local ent = getent(self)
+		local mins, maxs = ent:GetRenderBounds()
+		return vwrap(mins), vwrap(maxs)
 	end
 
 	--- Sets the Level Of Detail model to use with this entity. This may not work for all models if the model doesn't include any LOD sub models.
@@ -941,12 +951,19 @@ function ents_methods:getQuotaMax()
 	end
 end
 
---- Return if the entity has a starfall instance
+--- Return if the entity has a starfall instance or E2 instance
 -- @shared
--- @return boolean if has starfall instance
+-- @return boolean if has starfall instance or E2 instance
 function ents_methods:hasInstance()
 	local ent = getent(self)
-	return ent.Starfall and ent.instance~=nil
+
+	if ent.Starfall then
+		return ent.instance~=nil
+	elseif ent:GetClass()=="gmod_wire_expression2" then
+		return SERVER and not ent.error
+	end
+
+	return false
 end
 
 if SERVER then
