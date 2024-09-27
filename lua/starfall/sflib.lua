@@ -814,6 +814,21 @@ function SF.MakeError(msg, level, uncatchable, prependinfo, userdata)
 	}, SF.Errormeta)
 end
 
+function SF.GetLines(str)
+	local current_pos = 1
+	local lineN = 0
+	return function()
+		local start_pos, end_pos = string.find( str, "\r?\n", current_pos )
+		if start_pos then
+			local ret = string.sub( str, current_pos, start_pos - 1 )
+			current_pos = end_pos + 1
+			lineN = lineN + 1
+			return lineN, ret
+		else
+			return nil
+		end
+	end
+end
 
 -------------------------------------------------------------------------------
 -- Starfall instance hook management
@@ -1224,7 +1239,7 @@ function SF.EntIsReady(ent)
 	if class=="player" then
 		return ent:IsPlayer()
 	elseif class=="starfall_processor" then
-		return ent.SetupFiles~=nil
+		return ent.Compile~=nil
 	elseif class=="starfall_hologram" then
 		return ent.SetClip~=nil
 	elseif class=="starfall_prop" then
@@ -1427,13 +1442,36 @@ function SF.CheckMaterial(material)
 	return mat
 end
 
-
 function SF.CheckModel(model, player, prop)
 	if #model > 260 then SF.Throw("Model path too long!", 3) end
 	model = SF.NormalizePath(string.lower(model))
 	if string.GetExtensionFromFilename(model) ~= "mdl" or (SERVER and (not util.IsValidModel(model) or (prop and not util.IsValidProp(model)))) then SF.Throw("Invalid model: "..model, 3) end
 	if player~=SF.Superuser and hook.Run("PlayerSpawnObject", player, model)==false then SF.Throw("Not allowed to use model: "..model, 3) end
 	return model
+end
+
+SF.UniqueSounds = setmetatable({}, {__index=function(t,k) local r={[1]=0} t[k]=r return r end})
+local maxUniqueSounds = CreateConVar("sf_sounds_unique_max"..(CLIENT and "_cl" or ""), "200", FCVAR_ARCHIVE, "The maximum number of unique sounds paths allowed")
+
+function SF.CheckSound(ply, path)
+	-- Limit length and remove invalid chars
+	if #path>260 then SF.Throw("Sound path too long!", 3) end
+	if string.match(path, "[\"?']") then SF.Throw("Sound path contains invalid characters!", 3) end
+
+	-- Extract sound flags. Only allowed flags are '<', '>', '^', ')'
+	local flags, checkpath = string.match(path, "^([^%w_/%.]*)(.*)")
+	if #flags>2 or string.match(flags, "[^<>%^%)]") then
+		SF.Throw("Invalid sound flags! "..flags, 3)
+	end
+
+	local UserUniqueSounds = SF.UniqueSounds[ply:SteamID()]
+	if not UserUniqueSounds[checkpath] then
+		if UserUniqueSounds[1] >= maxUniqueSounds:GetInt() then
+			SF.Throw("The unique sounds limit has been reached.", 3)
+		end
+		UserUniqueSounds[checkpath] = true
+		UserUniqueSounds[1] = UserUniqueSounds[1] + 1
+	end
 end
 
 function SF.CheckRagdoll(model)
@@ -1498,7 +1536,7 @@ function SF.GetExecutingPath()
 		local info = debug.getinfo(stackLevel, "S")
 		if not info then break end
 
-		curdir = string.match(info.short_src, "^SF:(.*[/\\])")
+		curdir = string.match(info.short_src, "^SF:(.*)")
 		stackLevel = stackLevel + 1
 	until curdir
 	return curdir
@@ -1981,6 +2019,7 @@ do
 	string_library.setChar = string.SetChar string_library.SetChar = string.SetChar
 	string_library.split = string.Split string_library.Split = string.Split
 	string_library.startWith = string.StartWith string_library.StartWith = string.StartWith
+	string_library.startsWith = string.StartsWith string_library.StartsWith = string.StartsWith
 	string_library.stripExtension = string.StripExtension string_library.StripExtension = string.StripExtension
 	string_library.sub = string.sub
 	string_library.toMinutesSeconds = string.ToMinutesSeconds string_library.ToMinutesSeconds = string.ToMinutesSeconds
