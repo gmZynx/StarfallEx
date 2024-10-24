@@ -1,5 +1,4 @@
 include("shared.lua")
-ENT.RenderGroup = RENDERGROUP_OPAQUE
 
 ENT.DefaultMaterial = Material( "hunter/myplastic" )
 ENT.Material = ENT.DefaultMaterial
@@ -130,14 +129,15 @@ function ENT:OnCullModeChanged()
 	self.renderstack:makeDirty()
 end
 
-function ENT:Draw(flags)
-	local selfTbl = self:GetTable()
-	if self:GetColor().a ~= 255 then
-		selfTbl.RenderGroup = RENDERGROUP_BOTH
+function ENT:OnRenderGroupChanged(name, old, group)
+	if group == -1 then
+		self.RenderGroup = nil
 	else
-		selfTbl.RenderGroup = RENDERGROUP_OPAQUE
+		self.RenderGroup = group
 	end
+end
 
+function ENT:Draw(flags)
 	self.renderstack:run(flags)
 end
 
@@ -185,13 +185,24 @@ end)
 
 -- For when the hologram matrix gets cleared
 hook.Add("NetworkEntityCreated", "starfall_hologram_rescale", function(holo)
-	if holo.IsSFHologram and holo.HoloMatrix then
-		holo:EnableMatrix("RenderMultiply", holo.HoloMatrix)
-	end
-	local sf_userrenderbounds = holo.sf_userrenderbounds
-	if sf_userrenderbounds then
-		holo:SetRenderBounds(sf_userrenderbounds[1], sf_userrenderbounds[2])
-	end
+        local sf_userrenderbounds = holo.sf_userrenderbounds
+        if holo.IsSFHologram then
+            if holo.HoloMatrix then
+                holo:EnableMatrix("RenderMultiply", holo.HoloMatrix)
+            end
+    
+            if not sf_userrenderbounds then        
+                local mins, maxs = holo:GetModelBounds()
+                if mins then
+                    local scale = holo:GetScale()
+                    holo:SetRenderBounds(mins * scale, maxs * scale)
+                end
+            end
+        end
+    
+        if sf_userrenderbounds then
+            holo:SetRenderBounds(sf_userrenderbounds[1], sf_userrenderbounds[2])
+        end
 end)
 
 local function ShowHologramOwners()
