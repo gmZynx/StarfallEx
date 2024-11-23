@@ -185,27 +185,20 @@ SF.BurstObject = {
 			return ret
 		end,
 		use = function(self, ply, amount)
-			if ply==SF.Superuser or IsValid(ply) then
-				local obj = self:get(ply)
-				local new = self:calc(obj) - amount
-				if new < 0 and ply~=SF.Superuser then
-					SF.Throw("The ".. self.name .." burst limit has been exceeded.", 3)
-				end
-				obj.val = new
-			else
-				SF.Throw("Invalid starfall user", 3)
+			local obj = self:get(ply)
+			local new = self:calc(obj) - amount
+			if new < 0 and ply~=SF.Superuser then
+				SF.Throw("The ".. self.name .." burst limit has been exceeded.", 3)
 			end
+			obj.val = new
 		end,
 		check = function(self, ply)
-			if ply==SF.Superuser or IsValid(ply) then
-				local obj = self:get(ply)
-				obj.val = self:calc(obj)
-				return obj.val
-			else
-				SF.Throw("Invalid starfall user", 3)
-			end
+			local obj = self:get(ply)
+			obj.val = self:calc(obj)
+			return obj.val
 		end,
 		get = function(self, ply)
+			if ply~=SF.Superuser and not IsValid(ply) then SF.Throw("Invalid starfall user", 4) end
 			local obj = self.objects[ply]
 			if not obj then
 				obj = {
@@ -1518,6 +1511,14 @@ local materialBlacklist = {
 	["debug/debugluxels"] = true,
 	["effects/ar2_altfire1"] = true,
 }
+SF.allowedRenderGroups = {
+	[RENDERGROUP_OPAQUE]=true,
+	[RENDERGROUP_TRANSLUCENT]=true,
+	[RENDERGROUP_BOTH]=true,
+	[RENDERGROUP_VIEWMODEL]=true,
+	[RENDERGROUP_VIEWMODEL_TRANSLUCENT]=true
+}
+
 --- Checks that the material isn't malicious
 -- @param Material The path to the material
 -- @return The material object or false if it's invalid

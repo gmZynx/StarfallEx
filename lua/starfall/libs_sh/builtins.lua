@@ -305,7 +305,7 @@ end
 -- @param number quota The threshold where the soft error will be thrown. Ratio of current cpu to the max cpu usage. 0.5 is 50%
 function builtins_library.setSoftQuota(quota)
 	checkluatype(quota, TYPE_NUMBER)
-	instance.cpu_softquota = quota
+	instance.cpu_softquota = math.Clamp(quota, 0, 1)
 end
 
 --- Checks if the chip is capable of performing an action.
@@ -1263,6 +1263,11 @@ end
 -- @name model
 -- @class directive
 -- @param model String of the model
+
+--- Precaches models that may take a while to load (max 16). --@precachemodel models/props_junk/watermelon01.mdl
+-- @name precachemodel
+-- @class directive
+-- @param model String of the model to precache
 
 --- Set the current file to only run on the server. Shared is default. --@server
 -- @name server
