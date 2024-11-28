@@ -130,10 +130,9 @@ function ENT:OnCullModeChanged()
 end
 
 function ENT:OnRenderGroupChanged(name, old, group)
-	if not SF.allowedRenderGroups[group] then return end
 	if group == -1 then
 		self.RenderGroup = nil
-	else
+	elseif SF.allowedRenderGroups[group] then
 		self.RenderGroup = group
 	end
 end
@@ -186,24 +185,24 @@ end)
 
 -- For when the hologram matrix gets cleared
 hook.Add("NetworkEntityCreated", "starfall_hologram_rescale", function(holo)
-        local sf_userrenderbounds = holo.sf_userrenderbounds
-        if holo.IsSFHologram then
-            if holo.HoloMatrix then
-                holo:EnableMatrix("RenderMultiply", holo.HoloMatrix)
-            end
-    
-            if not sf_userrenderbounds then        
-                local mins, maxs = holo:GetModelBounds()
-                if mins then
-                    local scale = holo:GetScale()
-                    holo:SetRenderBounds(mins * scale, maxs * scale)
-                end
-            end
-        end
-    
-        if sf_userrenderbounds then
-            holo:SetRenderBounds(sf_userrenderbounds[1], sf_userrenderbounds[2])
-        end
+	local sf_userrenderbounds = holo.sf_userrenderbounds
+	if holo.IsSFHologram then
+		if holo.HoloMatrix then
+			holo:EnableMatrix("RenderMultiply", holo.HoloMatrix)
+		end
+
+		if not sf_userrenderbounds then        
+			local mins, maxs = holo:GetModelBounds()
+			if mins then
+				local scale = holo:GetScale()
+				holo:SetRenderBounds(mins * scale, maxs * scale)
+			end
+		end
+	end
+
+	if sf_userrenderbounds then
+		holo:SetRenderBounds(sf_userrenderbounds[1], sf_userrenderbounds[2])
+	end
 end)
 
 local function ShowHologramOwners()
