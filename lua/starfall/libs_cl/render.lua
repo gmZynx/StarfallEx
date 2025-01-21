@@ -180,6 +180,11 @@ local function cleanupRender(instance)
 	instance:cleanupRender()
 end
 
+local function cleanupRenderAllowTrueReturn(instance, args)
+	instance:cleanupRender()
+	if args[1] and args[2]==true then return true end
+end
+
 local function canRenderHud(instance)
 	return SF.IsHUDActive(instance.entity) and (haspermission(instance, nil, "render.hud") or instance.player == SF.Superuser)
 end
@@ -193,7 +198,7 @@ local function hudPrepareSafeArgs(instance, ...)
 end
 
 --- Called when a frame is requested to be drawn. Doesn't require a screen or HUD but only works on rendertargets. (2D Context)
--- @name renderoffscreen
+-- @name RenderOffscreen
 -- @class hook
 -- @client
 SF.hookAdd("PreRender", "renderoffscreen", function(instance)
@@ -205,7 +210,7 @@ SF.hookAdd("PreRender", "renderoffscreen", function(instance)
 end, cleanupRender)
 
 --- Called when a scene is requested to be drawn. This is used for the render.renderview function.
--- @name renderscene
+-- @name RenderScene
 -- @class hook
 -- @client
 -- @param Vector origin View origin
@@ -225,7 +230,7 @@ function(instance)
 end)
 
 --- Called before entities are drawn. You can't render anything, but you can edit hologram matrices before they are drawn.
--- @name hologrammatrix
+-- @name HologramMatrix
 -- @class hook
 -- @client
 SF.hookAdd("PreDrawOpaqueRenderables", "hologrammatrix", function(instance, drawdepth, drawskybox)
@@ -233,13 +238,13 @@ SF.hookAdd("PreDrawOpaqueRenderables", "hologrammatrix", function(instance, draw
 end)
 
 --- Called when a frame is requested to be drawn on hud. (2D Context)
--- @name drawhud
+-- @name DrawHUD
 -- @class hook
 -- @client
 SF.hookAdd("HUDPaint", "drawhud", hudPrepareSafeArgs, cleanupRender)
 
 --- Called when a hud element is attempting to be drawn
--- @name hudshoulddraw
+-- @name HUDShouldDraw
 -- @class hook
 -- @client
 -- @param string str The name of the hud element trying to be drawn
@@ -254,16 +259,17 @@ end, function(instance, args)
 end)
 
 --- Called before opaque entities are drawn. (Only works with HUD) (3D context)
--- @name predrawopaquerenderables
+-- @name PreDrawOpaqueRenderables
 -- @class hook
 -- @client
 -- @param boolean depth Whether the current draw is writing depth
 -- @param boolean skybox Whether the current draw is drawing the skybox
 -- @param boolean skybox3d Whether the current draw is drawing the 3D skybox
-SF.hookAdd("PreDrawOpaqueRenderables", nil, hudPrepareSafeArgs, cleanupRender)
+-- @return boolean Return true to prevent opaque entities from drawing
+SF.hookAdd("PreDrawOpaqueRenderables", nil, hudPrepareSafeArgs, cleanupRenderAllowTrueReturn)
 
 --- Called after opaque entities are drawn. (Only works with HUD) (3D context)
--- @name postdrawopaquerenderables
+-- @name PostDrawOpaqueRenderables
 -- @class hook
 -- @client
 -- @param boolean depth Whether the current draw is writing depth
@@ -272,16 +278,17 @@ SF.hookAdd("PreDrawOpaqueRenderables", nil, hudPrepareSafeArgs, cleanupRender)
 SF.hookAdd("PostDrawOpaqueRenderables", nil, hudPrepareSafeArgs, cleanupRender)
 
 --- Called before translucent entities are drawn. (Only works with HUD) (3D context)
--- @name predrawtranslucentrenderables
+-- @name PreDrawTranslucentRenderables
 -- @class hook
 -- @client
 -- @param boolean depth Whether the current draw is writing depth
 -- @param boolean skybox Whether the current draw is drawing the skybox
 -- @param boolean skybox3d Whether the current draw is drawing the 3D skybox
-SF.hookAdd("PreDrawTranslucentRenderables", nil, hudPrepareSafeArgs, cleanupRender)
+-- @return boolean Return true to prevent translucent entities from drawing
+SF.hookAdd("PreDrawTranslucentRenderables", nil, hudPrepareSafeArgs, cleanupRenderAllowTrueReturn)
 
 --- Called after translucent entities are drawn. (Only works with HUD) (3D context)
--- @name postdrawtranslucentrenderables
+-- @name PostDrawTranslucentRenderables
 -- @class hook
 -- @client
 -- @param boolean depth Whether the current draw is writing depth
@@ -290,13 +297,13 @@ SF.hookAdd("PreDrawTranslucentRenderables", nil, hudPrepareSafeArgs, cleanupRend
 SF.hookAdd("PostDrawTranslucentRenderables", nil, hudPrepareSafeArgs, cleanupRender)
 
 --- Called before drawing HUD (2D Context)
--- @name predrawhud
+-- @name PreDrawHUD
 -- @class hook
 -- @client
 SF.hookAdd("PreDrawHUD", nil, hudPrepareSafeArgs, cleanupRender)
 
 --- Called after drawing HUD (2D Context)
--- @name postdrawhud
+-- @name PostDrawHUD
 -- @class hook
 -- @client
 SF.hookAdd("PostDrawHUD", nil, function(instance)
@@ -306,14 +313,28 @@ SF.hookAdd("PostDrawHUD", nil, function(instance)
 	end
 end, cleanupRender)
 
+--- Called before drawing the player. (Only works with HUD) (3D Context)
+-- @name PreDrawPlayer
+-- @class hook
+-- @client
+-- @param Player ply Player that's about to be drawn
+-- @param number flags STUDIO flags for the render operation
+-- @return boolean Return true to prevent the player from drawing
+SF.hookAdd("PrePlayerDraw", "predrawplayer", function(instance, ply, flags)
+	if canRenderHud(instance) then
+		return true, { instance.Types.Player.Wrap(ply), flags }
+	end
+	return false
+end, cleanupRenderAllowTrueReturn)
+
 --- Called before drawing the viewmodel rendergroup (3D Context)
--- @name predrawviewmodels
+-- @name PreDrawViewModels
 -- @class hook
 -- @client
 SF.hookAdd("PreDrawViewModels", nil, hudPrepareSafeArgs, cleanupRender)
 
 --- Called when world fog is drawn.
--- @name setupworldfog
+-- @name SetupWorldFog
 -- @class hook
 -- @client
 SF.hookAdd("SetupWorldFog", nil, function(instance)
@@ -329,7 +350,7 @@ end, function(instance)
 end)
 
 --- Called when skybox fog is drawn.
--- @name setupskyboxfog
+-- @name SetupSkyboxFog
 -- @class hook
 -- @client
 -- @param number scale Skybox scale
@@ -346,29 +367,26 @@ end, function(instance)
 end)
 
 --- Called before the 3D skybox is drawn. This will not be called for maps with no 3D skybox, or when the 3d skybox is disabled
--- @name predrawskybox
+-- @name PreDrawSkyBox
 -- @class hook
 -- @client
 -- @return boolean Return true to not predraw the skybox both 2d and 3d
-SF.hookAdd("PreDrawSkyBox", nil, hudPrepareSafeArgs, function(instance, args)
-	instance:cleanupRender()
-    if args[1] and args[2]==true then return true end
-end)
+SF.hookAdd("PreDrawSkyBox", nil, hudPrepareSafeArgs, cleanupRenderAllowTrueReturn)
 
 --- Called right after the 2D skybox has been drawn - allowing you to draw over it.
--- @name postdraw2dskybox
+-- @name PostDraw2DSkyBox
 -- @class hook
 -- @client
 SF.hookAdd("PostDraw2DSkyBox", nil, hudPrepareSafeArgs, cleanupRender)
 
 --- Called after the 3D skybox is drawn. This will not be called if PreDrawSkyBox has prevented rendering of the skybox
--- @name postdrawskybox
+-- @name PostDrawSkyBox
 -- @class hook
 -- @client
 SF.hookAdd("PostDrawSkyBox", nil, hudPrepareSafeArgs, cleanupRender)
 
 --- Called when the engine wants to calculate the player's view. Only works if connected to Starfall HUD
--- @name calcview
+-- @name CalcView
 -- @class hook
 -- @client
 -- @param Vector pos Current position of the camera

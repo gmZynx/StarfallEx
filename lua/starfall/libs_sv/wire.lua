@@ -648,7 +648,8 @@ end
 local function readCell(ent, k)
 	checkpermission(instance, nil, "wire.wirelink.read")
 	local ReadCell = Ent_GetTable(ent).ReadCell or SF.Throw("Entity does not have ReadCell capability", 3)
-	return tonumber(instance:runExternal(ReadCell, ent, k))
+	local ok, n = instance:runExternal(ReadCell, ent, k)
+	return ok and tonumber(n) or 0
 end
 
 --- Sets the value of an entity's input, triggering it as well
@@ -746,7 +747,7 @@ end
 --- Checks if a wirelink is valid. (ie. doesn't point to an invalid entity)
 -- @return boolean Whether the wirelink is valid
 function wirelink_methods:isValid()
-	return wlunwrap(self):Ent_IsValid()
+	return Ent_IsValid(wlunwrap(self))
 end
 
 --- Returns current state of the specified input
@@ -874,20 +875,20 @@ wire_library.ports = setmetatable({}, {
 -- ------------------------- Hook Documentation ------------------------- --
 
 --- Called when an input on a wired SF chip is written to
--- @name input
+-- @name Input
 -- @class hook
 -- @param string input The input name
 -- @param any value The value of the input
 
 --- Called when a high speed device reads from a wired SF chip
--- @name readcell
+-- @name ReadCell
 -- @class hook
 -- @server
 -- @param any address The address requested
 -- @return any The value read
 
 --- Called when a high speed device writes to a wired SF chip
--- @name writecell
+-- @name WriteCell
 -- @class hook
 -- @param any address The address written to
 -- @param table data The data being written
