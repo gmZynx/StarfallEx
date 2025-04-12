@@ -243,17 +243,9 @@ function net_library.readStream(cb)
 	checkluatype (cb, TYPE_FUNCTION)
 	if streams[instance.player] then SF.Throw("The previous stream must finish before reading another.", 2) end
 
-	local streamOwner, target
-	if instance.player ~= SF.Superuser then
-		streamOwner = instance.player
-		target = instance.player
-	else
-		streamOwner = SF.Superuser
-		target = instance.data.net.ply
-	end
-	streams[streamOwner] = net.ReadStream((SERVER and target or nil), function(data)
+	streams[instance.player] = net.ReadStream((SERVER and instance.data.net.ply or nil), function(data)
 		instance:runFunction(cb, data)
-		streams[streamOwner] = nil
+		streams[instance.player] = nil
 	end)
 end
 
@@ -316,6 +308,24 @@ end
 function net_library.readUInt(n)
 	checkluatype (n, TYPE_NUMBER)
 	return net.ReadUInt(n)
+end
+
+--- Writes an unsigned 64-bit integer to the net message
+-- @shared
+-- @param string t The 64-bit integer written as a string because lua numbers can't hold 64-bit ints
+function net_library.writeUInt64(t)
+	if not netStarted then SF.Throw("net message not started", 2) end
+
+	checkluatype (t, TYPE_STRING)
+
+	write{net.WriteUInt64, 64, t}
+end
+
+--- Reads an unsigned 64-bit integer from the net message
+-- @shared
+-- @return string The unsigned integer that was read, as a string
+function net_library.readUInt64()
+	return net.ReadUInt64()
 end
 
 --- Writes a bit to the net message
