@@ -569,7 +569,7 @@ local function parseEntity(ent, io)
 
 	local names, types = {}, {}
 	for k, v in pairs(ent[io]) do
-		if isstring(k) and isstring(v) and k ~= "" then
+		if isstring(k) and isstring(v.Type) and k ~= "" then
 			table.insert(names, k)
 			table.insert(types, v.Type)
 		end
@@ -767,8 +767,9 @@ function wirelink_methods:inputType(name)
 	checkluatype(name, TYPE_STRING)
 	local wl = getwl(self)
 	local input = wl.Inputs[name]
-	if not (input and isstring(input.Type)) then SF.Throw("Invalid input name: "..name, 2) end
-	return input.Type
+	if input then
+		return tostring(input.Type)
+	end
 end
 
 --- Returns the type of output name, or nil if it doesn't exist
@@ -778,8 +779,9 @@ function wirelink_methods:outputType(name)
 	checkluatype(name, TYPE_STRING)
 	local wl = getwl(self)
 	local output = wl.Outputs[name]
-	if not (output and isstring(output.Type)) then SF.Throw("Invalid output name: "..name, 2) end
-	return output.Type
+	if output then
+		return tostring(output.Type)
+	end
 end
 
 --- Returns the entity that the wirelink represents
