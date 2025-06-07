@@ -166,6 +166,18 @@ registerSent("gmod_wire_nailer", {{
 	["ShowBeam"] = {TYPE_BOOL, true},
 }})
 
+registerSent("gmod_wire_nm_sprite", {{
+	["Model"] = {TYPE_STRING, "models/beer/wiremod/watersensor_mini.mdl"},
+	["spr_scale"] = {TYPE_NUMBER, 1},
+	["spr_framerate"] = {TYPE_NUMBER, 10},
+	["spr_rendermode"] = {TYPE_NUMBER, 9},
+	["spr_texture"] = {TYPE_STRING, "sprites/light_glow03.vmt"},
+	["r"] = {TYPE_NUMBER, 255},
+	["g"] = {TYPE_NUMBER, 255},
+	["b"] = {TYPE_NUMBER, 255},
+	["a"] = {TYPE_NUMBER, 255},
+}})
+
 registerSent("gmod_wire_grabber", {{
 	["Model"] = {TYPE_STRING, "models/jaanus/wiretool/wiretool_range.mdl"},
 	["Range"] = {TYPE_NUMBER, 100},
@@ -428,12 +440,35 @@ registerSent("gmod_wire_trigger", {
 	}
 })
 
-registerSent("gmod_wire_socket", {{
-	["Model"] = {TYPE_STRING, "models/props_lab/tpplugholder_single.mdl"},
-	["ArrayInput"] = {TYPE_BOOL, false},
-	["WeldForce"] = {TYPE_NUMBER, 5000},
-	["AttachRange"] = {TYPE_NUMBER, 5},
-}})
+registerSent("gmod_wire_plug", {
+	_preFactory = function(ply, self)
+		local validModels = list.GetForEdit("Wire_Socket_Models")
+		if validModels[self.Model] then
+			self.Model = validModels[self.Model].plug
+		else
+			local found = false
+			for _, v in pairs(validModels) do if v.plug==self.Model then found = true break end end
+			if not found then error("Invalid plug model") end
+		end
+	end,
+
+	{
+		["Model"] = {TYPE_STRING, "models/props_lab/tpplugholder_single.mdl"},
+		["ArrayInput"] = {TYPE_BOOL, false},
+	}
+})
+
+registerSent("gmod_wire_socket", {
+	_preFactory = function(ply, self)
+		if not list.GetForEdit("Wire_Socket_Models")[self.Model] then error("Invalid socket model") end
+	end,
+	{
+		["Model"] = {TYPE_STRING, "models/props_lab/tpplugholder_single.mdl"},
+		["ArrayInput"] = {TYPE_BOOL, false},
+		["WeldForce"] = {TYPE_NUMBER, 5000},
+		["AttachRange"] = {TYPE_NUMBER, 5},
+	}
+})
 
 registerSent("gmod_wire_simple_explosive", {{
 	["Model"] = {TYPE_STRING, "models/props_c17/oildrum001_explosive.mdl"},
@@ -550,8 +585,8 @@ registerSent("gmod_wire_output", {{
 
 registerSent("gmod_wire_motor", {
 	_preFactory = function(ply, self)
-		if not IsValid(self.Ent1) then SF.Throw("Invalid Entity, Parameter: ent1", 3) end
-		if not IsValid(self.Ent2) then SF.Throw("Invalid Entity, Parameter: ent2", 3) end
+		if not IsValid(self.Ent1) then error("Invalid Entity, Parameter: ent1") end
+		if not IsValid(self.Ent2) then error("Invalid Entity, Parameter: ent2") end
 
 		self.model = self.Model
 		self.MyId = "starfall_createsent"
@@ -687,8 +722,8 @@ registerSent("gmod_wire_igniter", {{
 
 registerSent("gmod_wire_hydraulic", {
 	_preFactory = function(ply, self)
-		if not IsValid(self.Ent1) then SF.Throw("Invalid Entity, Parameter: ent1", 3) end
-		if not IsValid(self.Ent2) then SF.Throw("Invalid Entity, Parameter: ent2", 3) end
+		if not IsValid(self.Ent1) then error("Invalid Entity, Parameter: ent1") end
+		if not IsValid(self.Ent2) then error("Invalid Entity, Parameter: ent2") end
 
 		self.model = self.Model
 		self.MyId = "starfall_createsent"
@@ -902,7 +937,7 @@ registerSent("gmod_wire_value", {
 			checkluatype(val[1], TYPE_STRING, 3, "Parameter: value[" .. i .. "][1]")
 
 			local typ = string.upper(val[1])
-			if not valid_types[typ] then SF.Throw("value[" .. i .. "] type is invalid " .. typ, 3) end
+			if not valid_types[typ] then error("value[" .. i .. "] type is invalid " .. typ) end
 
 			checkluatype(val[2], TYPE_STRING, 3, "Parameter: value[" .. i .. "][2]")
 
@@ -926,7 +961,7 @@ registerSent("gmod_wire_adv_emarker", {{
 
 registerSent("gmod_wire_wheel", {
 	_preFactory = function(ply, self)
-		if not IsValid(self.Base) then SF.Throw("Invalid Entity, Parameter: base", 3) end
+		if not IsValid(self.Base) then error("Invalid Entity, Parameter: base") end
 	end,
 
 	_postFactory = function(ply, self, enttbl)
@@ -1544,6 +1579,16 @@ return function() end
 -- number Range = 100
 -- boolean ShowBeam = true
 -- 
+-- > gmod_wire_nm_sprite
+-- number spr_scale = 1
+-- number spr_framerate = 10
+-- number spr_rendermode = 9
+-- string spr_texture = "sprites/light_glow03.vmt"
+-- number r = 255
+-- number g = 255
+-- number b = 255
+-- number a = 255
+-- 
 -- > gmod_wire_numpad
 -- string Model = "models/beer/wiremod/numpad.mdl"
 -- boolean toggle = false
@@ -1559,6 +1604,10 @@ return function() end
 -- 
 -- > gmod_wire_pixel
 -- string Model = "models/jaanus/wiretool/wiretool_siren.mdl"
+-- 
+-- > gmod_wire_plug
+-- boolean ArrayInput = false
+-- string Model = "models/props_lab/tpplugholder_single.mdl"
 -- 
 -- > gmod_wire_pod
 -- string Model = "models/jaanus/wiretool/wiretool_siren.mdl"

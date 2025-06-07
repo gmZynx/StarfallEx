@@ -8,8 +8,12 @@ local P = SF.Permissions
 P.privileges = {}
 P.providers = {}
 P.settings = setmetatable({},{__index = function(t,k) local r={} t[k]=r return r end})
-P.filename = SERVER and "sf_perms2_sv.txt" or "sf_perms2_cl.txt"
+P.filename = SERVER and "sf_perms_sv.txt" or "sf_perms_cl.txt"
 
+do -- Delete old settings due to setting issues with new defaults
+	local t = file.Time(P.filename, "DATA")
+	if t>0 and t<1748452637 then file.Delete(P.filename) end
+end
 
 local Privilege = {
 	__index = {
@@ -105,10 +109,12 @@ local Privilege = {
 setmetatable(Privilege, Privilege)
 
 function P.registerProvider(provider)
+	if P.providers[provider.id] then ErrorNoHaltWithStack("Registering same provider more than once! "..name) end
 	P.providers[provider.id] = provider
 end
 
 function P.registerPrivilege(id, name, description, providerconfig)
+	if P.privileges[id] then ErrorNoHaltWithStack("Registering same privilege more than once! "..name) end
 	P.privileges[id] = Privilege(id, name, description, providerconfig)
 end
 
@@ -133,16 +139,7 @@ function P.refreshSettingsCache()
 	end
 end
 
-local invalidators = {
-	[1669008186] = { -- Nov 21, 2022
-		message = "HTTP's URL whitelisting was misconfigured, and set by default to Disabled",
-		realm = CLIENT,
-		invalidate = {"http.get", "http.post"},
-		check = function()
-			return P.settings["http.get"]["urlwhitelist"] == 2 or P.settings["http.post"]["urlwhitelist"] == 2
-		end
-	}
-}
+local invalidators = {}
 
 local printC = function(...) (SERVER and MsgC or chat.AddText)(Color(255, 255, 255), "[", Color(11, 147, 234), "Starfall", Color(255, 255, 255), "]: ", ...) if SERVER then MsgC("\n") end end
 
@@ -165,17 +162,28 @@ function P.loadPermissionsSafe()
 	local saveSettings = not file.Exists(P.filename, "DATA")
 	P.settings = setmetatable(util.JSONToTable(file.Read(P.filename) or "") or {}, getmetatable(P.settings))
 
-	local settingsTime = file.Time(P.filename, "DATA") or math.huge
-	for issueTime, issue in pairs(invalidators) do
-		if settingsTime < issueTime and issue.realm and (issue.check == nil or issue.check()) then 
-			printC("Your configuration has been modified due to a misconfiguration.")
-			printC("Reason: " .. issue.message)
-			printC("Changes: " .. table.concat(issue.invalidate, ", "))
+	local version = tonumber(P.settings.version) or 1
+	while invalidators[version] do
+		local issue = invalidators[version]
+		if issue.realm then
+			local changed = false
 			for _, v in ipairs(issue.invalidate) do
-				saveSettings = true
-				P.settings[v] = nil
+				if issue.check == nil or issue.check(P.settings[v]) then
+					P.settings[v] = nil
+					changed = true
+				end
+			end
+			if changed then
+				printC("Your configuration has been modified due to a misconfiguration.")
+				printC("Reason: " .. issue.message)
+				printC("Changes: " .. table.concat(issue.invalidate, ", "))
 			end
 		end
+		version = version + 1
+	end
+	if version ~= P.settings.version then
+		P.settings.version = version
+		saveSettings = true
 	end
 
 	for k, v in pairs(P.privileges) do

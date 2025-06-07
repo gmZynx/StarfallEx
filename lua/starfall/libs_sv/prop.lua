@@ -1,8 +1,8 @@
 -- Global to all starfalls
 local checkluatype = SF.CheckLuaType
 local registerprivilege = SF.Permissions.registerPrivilege
-local IsValid = FindMetaTable("Entity").IsValid
-local IsValidPhys = FindMetaTable("PhysObj").IsValid
+local Ent_IsValid = FindMetaTable("Entity").IsValid
+local Phys_IsValid = FindMetaTable("PhysObj").IsValid
 
 -- Register privileges
 registerprivilege("prop.create", "Create prop", "Allows the user to create props")
@@ -85,7 +85,7 @@ function props_library.create(pos, ang, model, frozen)
 
 	for I = 0, propent:GetPhysicsObjectCount() - 1 do
 		local obj = propent:GetPhysicsObjectNum(I)
-		if IsValidPhys(obj) then
+		if Phys_IsValid(obj) then
 			obj:EnableMotion(not frozen)
 		end
 	end
@@ -134,7 +134,7 @@ function props_library.createRagdoll(model, frozen)
 	if frozen then
 		for I = 0, ent:GetPhysicsObjectCount() - 1 do
 			local obj = ent:GetPhysicsObjectNum(I)
-			if IsValidPhys(obj) then
+			if Phys_IsValid(obj) then
 				obj:EnableMotion(false)
 			end
 		end
@@ -224,7 +224,7 @@ function props_library.createCustom(pos, ang, vertices, frozen)
 	end)
 
 	local physobj = propent:GetPhysicsObject()
-	if not IsValidPhys(physobj) then
+	if not Phys_IsValid(physobj) then
 		SF.Throw("Custom prop generated with invalid physics object!", 2)
 	end
 
@@ -301,7 +301,7 @@ function props_library.createComponent(pos, ang, class, model, frozen)
 
 	for I = 0,  comp:GetPhysicsObjectCount() - 1 do
 		local obj = comp:GetPhysicsObjectNum(I)
-		if IsValidPhys(obj) then
+		if Phys_IsValid(obj) then
 			obj:EnableMotion(not frozen)
 		end
 	end
@@ -377,35 +377,41 @@ function props_library.createSeat(pos, ang, model, frozen)
 
 	local prop
 
-	prop = ents.Create(class)
-	prop:SetModel(model)
+	local ok, err = instance:runExternal(function()
+		prop = ents.Create(class)
+		prop:SetModel(model)
 
-	prop:SetPos(pos)
-	prop:SetAngles(ang)
-	prop:Spawn()
-	prop:SetKeyValue( "limitview", 0 )
-	prop:Activate()
+		prop:SetPos(pos)
+		prop:SetAngles(ang)
+		prop:Spawn()
+		prop:SetKeyValue( "limitview", 0 )
+		prop:Activate()
 
-	entList:register(instance, prop)
-
-	local phys = prop:GetPhysicsObject()
-	if IsValidPhys(phys) then
-		phys:EnableMotion(not frozen)
-	end
-
-	if ply ~= SF.Superuser then
-		prop:SetCreator( ply )
-
-		if propConfig.undo then
-			undo.Create("SF")
-				undo.SetPlayer(ply)
-				undo.AddEntity(prop)
-			undo.Finish("SF (" .. class .. ")")
+		local phys = prop:GetPhysicsObject()
+		if Phys_IsValid(phys) then
+			phys:EnableMotion(not frozen)
 		end
 
-		ply:AddCleanup("props", prop)
-		gamemode.Call("PlayerSpawnedVehicle", ply, prop)
+		if ply ~= SF.Superuser then
+			prop:SetCreator( ply )
+
+			if propConfig.undo then
+				undo.Create("SF")
+					undo.SetPlayer(ply)
+					undo.AddEntity(prop)
+				undo.Finish("SF (" .. class .. ")")
+			end
+
+			ply:AddCleanup("props", prop)
+			gamemode.Call("PlayerSpawnedVehicle", ply, prop)
+		end
+	end)
+	if not ok then
+		if Ent_IsValid(entity) then entity:Remove() end
+		SF.Throw("Failed to create entity (" .. tostring(err) .. ")", 2)
 	end
+	entList:register(instance, prop)
+	instance:checkCpu()
 
 	return owrap(prop)
 end
@@ -437,8 +443,7 @@ function props_library.createSent(pos, ang, class, frozen, data)
 	local vehicle = list.GetForEdit("Vehicles")[class]
 	local sent2 = list.GetForEdit("starfall_creatable_sent")[class]
 
-	local entity
-	local hookcall
+	local entity, entOk, entErr, hookcall
 
 	if swep then
 		if ply ~= SF.Superuser then
@@ -447,13 +452,13 @@ function props_library.createSent(pos, ang, class, frozen, data)
 			if gamemode.Call("PlayerSpawnSWEP", ply, class, swep) == false then SF.Throw("Another hook prevented the swep from spawning", 2) end
 		end
 
-		entity = ents.Create(swep.ClassName)
-		if IsValid(entity) then
+		entOk, entErr = instance:runExternal(function()
+			entity = ents.Create(swep.ClassName)
 			entity:SetPos(pos)
 			entity:SetAngles(ang)
 			entity:Spawn()
 			entity:Activate()
-		end
+		end)
 
 		hookcall = "PlayerSpawnedSWEP"
 	elseif sent then
@@ -462,18 +467,20 @@ function props_library.createSent(pos, ang, class, frozen, data)
 			if gamemode.Call("PlayerSpawnSENT", ply, class) == false then SF.Throw("Another hook prevented the sent from spawning", 2) end
 		end
 
-		local sent = scripted_ents.GetStored( class )
-		if sent and sent.t.SpawnFunction then
-			entity = sent.t.SpawnFunction( sent.t, ply, SF.dumbTrace(NULL, pos), class )
-		else
-			entity = ents.Create( class )
-			if IsValid(entity) then
-				entity:SetPos(pos)
-				entity:SetAngles(ang)
-				entity:Spawn()
-				entity:Activate()
+		entOk, entErr = instance:runExternal(function()
+			local sent = scripted_ents.GetStored( class )
+			if sent and sent.t.SpawnFunction then
+				entity = sent.t.SpawnFunction( sent.t, ply, SF.dumbTrace(NULL, pos), class )
+			else
+				entity = ents.Create( class )
+				if Ent_IsValid(entity) then
+					entity:SetPos(pos)
+					entity:SetAngles(ang)
+					entity:Spawn()
+					entity:Activate()
+				end
 			end
-		end
+		end)
 
 		hookcall = "PlayerSpawnedSENT"
 	elseif npc then
@@ -482,9 +489,10 @@ function props_library.createSent(pos, ang, class, frozen, data)
 			if gamemode.Call("PlayerSpawnNPC", ply, class, "") == false then SF.Throw("Another hook prevented the npc from spawning", 2) end
 		end
 
-		entity = ents.Create(npc.Class)
+		
+		entOk, entErr = instance:runExternal(function()
+			entity = ents.Create(npc.Class)
 
-		if IsValid(entity) then
 			if (npc.Model) then
 				entity:SetModel(npc.Model)
 			end
@@ -508,16 +516,16 @@ function props_library.createSent(pos, ang, class, frozen, data)
 			entity:SetAngles(ang)
 			entity:Spawn()
 			entity:Activate()
-		end
+		end)
 
 		hookcall = "PlayerSpawnedNPC"
 	elseif vehicle then
 		if ply ~= SF.Superuser and gamemode.Call("PlayerSpawnVehicle", ply, vehicle.Model, vehicle.Class, vehicle) == false then SF.Throw("Another hook prevented the vehicle from spawning", 2) end
 
-		entity = ents.Create(vehicle.Class)
-
-		if IsValid(entity) then
+		entOk, entErr = instance:runExternal(function()
+			entity = ents.Create(vehicle.Class)
 			entity:SetModel(vehicle.Model)
+
 			if (vehicle.Model == "models/buggy.mdl") then
 				entity:SetKeyValue("vehiclescript", "scripts/vehicles/jeep_test.txt")
 			end
@@ -530,10 +538,10 @@ function props_library.createSent(pos, ang, class, frozen, data)
 					local kLower = string.lower(k)
 
 					if (kLower == "vehiclescript" or
-						 kLower == "limitview"     or
-						 kLower == "vehiclelocked" or
-						 kLower == "cargovisible"  or
-						 kLower == "enablegun")
+						kLower == "limitview"     or
+						kLower == "vehiclelocked" or
+						kLower == "cargovisible"  or
+						kLower == "enablegun")
 					then
 						entity:SetKeyValue(k, v)
 					end
@@ -555,12 +563,14 @@ function props_library.createSent(pos, ang, class, frozen, data)
 			entity:SetAngles(ang)
 			entity:Spawn()
 			entity:Activate()
-		end
+		end)
 
 		hookcall = "PlayerSpawnedVehicle"
 	elseif sent2 then
+		local classTbl = scripted_ents.GetStored(class)
+		if not classTbl then SF.Throw("This entity doesn't exist!", 2) end
 		if ply ~= SF.Superuser then
-			if scripted_ents.GetStored(class).t.AdminOnly and not ply:IsAdmin() then SF.Throw("This sent is admin only!", 2) end
+			if classTbl.t.AdminOnly and not ply:IsAdmin() then SF.Throw("This sent is admin only!", 2) end
 			if gamemode.Call("PlayerSpawnSENT", ply, class) == false then SF.Throw("Another hook prevented the sent from spawning", 2) end
 		end
 
@@ -605,7 +615,7 @@ function props_library.createSent(pos, ang, class, frozen, data)
 		enttbl.Pos = pos
 		enttbl.Angle = ang
 
-		local isOk, errorMsg = instance:runExternal(function()
+		entOk, entErr = instance:runExternal(function()
 			if sent2._preFactory then
 				sent2._preFactory(ply, enttbl)
 			end
@@ -630,27 +640,19 @@ function props_library.createSent(pos, ang, class, frozen, data)
 				entity:PostEntityPaste(ply, entity, {[entity:EntIndex()] = entity})
 			end
 		end)
-
-		if not isOk then
-			if IsValid(entity) then
-				entity:Remove()
-			end
-
-			if debug.getmetatable(errorMsg) == SF.Errormeta then
-				error(errorMsg, 3)
-			else
-				SF.Throw("Failed to create entity (" .. tostring(errorMsg) .. ")", 2)
-			end
-		end
+	end
+	if not entOk then
+		if Ent_IsValid(entity) then entity:Remove() end
+		SF.Throw("Failed to create entity (" .. tostring(entErr) .. ")", 2)
 	end
 
-	if IsValid(entity) then
+	if Ent_IsValid(entity) then
 		entList:register(instance, entity)
 
 		if CPPI then entity:CPPISetOwner(ply == SF.Superuser and NULL or ply) end
 
 		local phys = entity:GetPhysicsObject()
-		if IsValidPhys(phys) then
+		if Phys_IsValid(phys) then
 			phys:EnableMotion(not frozen)
 		end
 
@@ -670,6 +672,7 @@ function props_library.createSent(pos, ang, class, frozen, data)
 			end
 		end
 
+		instance:checkCpu()
 		return owrap(entity)
 	end
 end
@@ -697,15 +700,33 @@ function props_library.spawnRate()
 	return plyPropBurst.rate
 end
 
+--- Returns whether the chip will automatically remove created props when the chip is removed
+-- @server
+-- @return boolean Determines whether props will be cleaned
+function props_library.getPropClean()
+    return propConfig.clean
+end
+
+--- Returns whether the props are undo-able
+-- @server
+-- @return boolean Determines whether props are undo-able
+function props_library.getPropUndo()
+    return propConfig.undo
+end
+
 --- Sets whether the chip should remove created props when the chip is removed
+-- @server
 -- @param boolean on Whether the props should be cleaned or not
 function props_library.setPropClean(on)
+	checkluatype(on, TYPE_BOOL)
 	propConfig.clean = on
 end
 
 --- Sets whether the props should be undo-able
+-- @server
 -- @param boolean on Whether the props should be undo-able
 function props_library.setPropUndo(on)
+	checkluatype(on, TYPE_BOOL)
 	propConfig.undo = on
 end
 

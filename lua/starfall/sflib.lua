@@ -142,8 +142,8 @@ function SF.EntityTable(key, destructor, dontwait)
 			if e ~= SF.Superuser then
 				local function ondestroy()
 					if t[e] then
-						if destructor then destructor(e, v) end
 						t[e] = nil
+						if destructor then destructor(e, v) end
 					end
 				end
 				if SERVER or dontwait then
@@ -436,15 +436,31 @@ SF.StringRestrictor = {
 			return self.default
 		end,
 		addWhitelistEntry = function(self, value)
-			table.insert(self.whitelist, value)
+			if not self.whitelistSet[value] then
+				self.whitelistSet[value] = true
+				table.insert(self.whitelist, value)
+			end
+			if self.blacklistSet[value] then
+				self.blacklistSet[value] = nil
+				table.RemoveByValue(self.blacklist, value)
+			end
 		end,
 		addBlacklistEntry = function(self, value)
-			table.insert(self.blacklist, value)
+			if not self.blacklistSet[value] then
+				table.insert(self.blacklist, value)
+				self.blacklistSet[value] = true
+			end
+			if self.whitelistSet[value] then
+				self.whitelistSet[value] = nil
+				table.RemoveByValue(self.whitelist, value)
+			end
 		end
 	},
 	__call = function(p, allowbydefault)
 		local t = {
+			whitelistSet = {},
 			whitelist = {}, -- patterns
+			blacklistSet = {},
 			blacklist = {}, -- patterns
 			default = allowbydefault or false,
 		}
@@ -1018,6 +1034,11 @@ SF.Errormeta = {
 	__metatable = "SFError"
 }
 
+SF.AutoGrowingTable = {
+    __index = function(t,k) local r=SF.AutoGrowingTable() t[k]=r return r end,
+    __call = function(t) return setmetatable({}, SF.AutoGrowingTable) end
+}
+setmetatable(SF.AutoGrowingTable, SF.AutoGrowingTable)
 
 --- Builds an error type to that contains line numbers, file name, and traceback
 function SF.MakeError(msg, level, uncatchable, prependinfo, userdata)
@@ -1892,6 +1913,21 @@ function SF.clampPos(pos)
 	pos.y = math_Clamp(pos.y, miny, maxy)
 	pos.z = math_Clamp(pos.z, minz, maxz)
 	return pos
+end
+
+function SF.CheckVector(v)
+	if v[1]<-1e12 or v[1]>1e12 or v[1]~=v[1] or
+	   v[2]<-1e12 or v[2]>1e12 or v[2]~=v[2] or
+	   v[3]<-1e12 or v[3]>1e12 or v[3]~=v[3] then
+
+		SF.Throw("Input vector too large or NAN", 3)
+	end
+end
+
+function SF.CheckNumber(n)
+	if n<-1e12 or n>1e12 or n~=n then
+		SF.Throw("Input number too large or NAN", 3)
+	end
 end
 
 local dumbtrace = {

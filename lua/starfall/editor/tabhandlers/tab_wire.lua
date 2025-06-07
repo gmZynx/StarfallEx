@@ -183,7 +183,7 @@ function TabHandler:UpdateHtmlBackground()
 			["$basetexture"] = "starfall_editor_background_rt"
 		})
 	end
-	SF.G_HttpTextureLoader:request(SF.HttpTextureRequest(url,nil,self.HtmlBackgroundRT,function(_,_,fn) fn(0,0,1024,1024) end))
+	SF.G_HttpTextureLoader:request(SF.HttpTextureRequest(url,nil,self.HtmlBackgroundRT,function(_,_,fn) if fn then fn(0,0,1024,1024) end end))
 end
 
 function TabHandler:RegisterTabMenu(menu, content)
@@ -1557,7 +1557,7 @@ function PANEL:_OnTextChanged()
 	end
 
 	self:SetSelection(text)
-	if TabHandler.ACAuto:GetBool() then
+	if not ctrlv and TabHandler.ACAuto:GetBool() then
 		self:AutocompleteOpen()
 	end
 
@@ -2721,7 +2721,12 @@ function PANEL:_OnKeyCodeTyped(code)
 	return handled
 end
 
-local wordPatternGroup = "%w@_"
+local function currentGroup(s, idx)
+	if string.match(s, "^[%w_]", idx) then return "[%w_]", "[^%w_]" end
+	if string.match(s, "^%s", idx) then return "%s", "%S" end
+	return "[^%w_%s]", "[%w_%s]"
+end
+
 -- helpers for ctrl-left/right
 function PANEL:wordLeft(caret)
 	caret = self:CopyPosition(caret)
@@ -2731,7 +2736,8 @@ function PANEL:wordLeft(caret)
 		caret = { caret[1]-1, #self:GetRowText(caret[1]-1) }
 		row = self:GetRowText(caret[1])
 	end
-	local pos = row:sub(1, caret[2]-1):match("[^"..wordPatternGroup.."]()["..wordPatternGroup.."]+[^"..wordPatternGroup.."]*$")
+	local group, antigroup = currentGroup(row, caret[2]-1)
+	local pos = string.match(string.sub(row, 1, caret[2]-1), antigroup.."()"..group.."+"..antigroup.."*$")
 	caret[2] = pos or 1
 	return caret
 end
@@ -2745,7 +2751,8 @@ function PANEL:wordRight(caret)
 		row = self:GetRowText(caret[1])
 		if row:sub(1, 1) ~= " " then return caret end
 	end
-	local pos = row:match("[^"..wordPatternGroup.."]()["..wordPatternGroup.."]", caret[2])
+	local group, antigroup = currentGroup(row, caret[2])
+	local pos = string.match(row, "()"..antigroup, caret[2])
 	caret[2] = pos or (#row + 1)
 	return caret
 end
