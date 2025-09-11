@@ -472,33 +472,66 @@ function props_library.createSent(pos, ang, class, frozen, data)
 			if gamemode.Call("PlayerSpawnNPC", ply, class, "") == false then SF.Throw("Another hook prevented the npc from spawning", 2) end
 		end
 
-		
-		entOk, entErr = instance:runExternal(function()
-			entity = ents.Create(npc.Class)
 
-			if (npc.Model) then
-				entity:SetModel(npc.Model)
+		entOk, entErr = instance:runExternal(function()
+			entity = ents.Create( npc.Class )
+
+			if ( npc.Model ) then
+				entity:SetModel( npc.Model )
 			end
-			if (npc.Material) then
-				entity:SetMaterial(npc.Material)
+
+			if ( npc.Material ) then
+				entity:SetMaterial( npc.Material )
 			end
-			local SpawnFlags = bit.bor(SF_NPC_FADE_CORPSE, SF_NPC_ALWAYSTHINK)
-			if (npc.SpawnFlags) then SpawnFlags = bit.bor(SpawnFlags, npc.SpawnFlags) end
-			if (npc.TotalSpawnFlags) then SpawnFlags = npc.TotalSpawnFlags end
-			entity:SetKeyValue("spawnflags", SpawnFlags)
+
+			local SpawnFlags = bit.bor( SF_NPC_FADE_CORPSE, SF_NPC_ALWAYSTHINK )
+			if ( npc.SpawnFlags ) then SpawnFlags = bit.bor( SpawnFlags, npc.SpawnFlags ) end
+			if ( npc.TotalSpawnFlags ) then SpawnFlags = npc.TotalSpawnFlags end
+			if ( SpawnFlagsSaved ) then SpawnFlags = SpawnFlagsSaved end
+			entity:SetKeyValue( "spawnflags", SpawnFlags )
 			entity.SpawnFlags = SpawnFlags
-			if (npc.KeyValues) then
-				for k, v in pairs(npc.KeyValues) do
-					entity:SetKeyValue(k, v)
+
+			local squadName = nil
+			if ( npc.KeyValues ) then
+				for k, v in pairs( npc.KeyValues ) do
+					entity:SetKeyValue( k, v )
+
+					if ( string.lower( k ) == "squadname" ) then squadName = v end
 				end
 			end
-			if (npc.Skin) then
-				entity:SetSkin(npc.Skin)
+
+			local MAX_SQUAD_MEMBERS	= 16
+			if ( squadName and ai.GetSquadMemberCount( squadName ) >= MAX_SQUAD_MEMBERS ) then
+				local sqNum = 0
+				while ( ai.GetSquadMemberCount( squadName .. sqNum ) >= MAX_SQUAD_MEMBERS ) do
+					sqNum = sqNum + 1
+				end
+
+				entity:SetKeyValue( "SquadName", squadName .. sqNum )
 			end
-			entity:SetPos(pos)
-			entity:SetAngles(ang)
+
+			if ( npc.Skin ) then
+				entity:SetSkin( npc.Skin )
+			end
+
+			entity:SetPos( pos )
+			entity:SetAngles( ang )
 			entity:Spawn()
 			entity:Activate()
+
+			entity.NPCName = class
+			entity.NPCTable = npc
+
+			if ( npc.Health ) then
+				entity:SetHealth( npc.Health )
+				entity:SetMaxHealth( npc.Health )
+			end
+
+			if ( npc.BodyGroups ) then
+				for k, v in pairs( npc.BodyGroups ) do
+					entity:SetBodygroup( k, v )
+				end
+			end
 		end)
 
 		hookcall = "PlayerSpawnedNPC"
@@ -687,14 +720,14 @@ end
 -- @server
 -- @return boolean Determines whether props will be cleaned
 function props_library.getPropClean()
-    return propConfig.clean
+	return propConfig.clean
 end
 
 --- Returns whether the props are undo-able
 -- @server
 -- @return boolean Determines whether props are undo-able
 function props_library.getPropUndo()
-    return propConfig.undo
+	return propConfig.undo
 end
 
 --- Sets whether the chip should remove created props when the chip is removed
