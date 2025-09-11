@@ -17,7 +17,7 @@ net.Receive("SF_netmessage", function(len, ply)
 		local instance = ent.instance
 		if instance and instance.runScriptHook then
 			local name = net.ReadString()
-			len = len - 16 - (#name + 1) * 8 -- This gets rid of the 2-byte entity, and the null-terminated string, making this now quantify the length of the user's net message
+			len = len - MAX_EDICT_BITS - (#name + 1) * 8 -- This gets rid of the 2-byte entity, and the null-terminated string, making this now quantify the length of the user's net message
 			instance.data.net.ply = ply
 			if ply then ply = instance.Types.Player.Wrap(ply) end
 
@@ -58,6 +58,12 @@ instance.data.net = {receives = netReceives}
 instance:AddHook("initialize", function()
 	getent = instance.Types.Entity.GetEntity
 	vunwrap1 = vec_meta.QuickUnwrap1
+end)
+instance:AddHook("deinitialize", function()
+	if streams[instance.player] then
+		streams[instance.player]:Remove()
+		streams[instance.player] = nil
+	end
 end)
 
 local function write(data)
@@ -244,8 +250,8 @@ function net_library.readStream(cb)
 	if streams[instance.player] then SF.Throw("The previous stream must finish before reading another.", 2) end
 
 	streams[instance.player] = net.ReadStream((SERVER and instance.data.net.ply or nil), function(data)
-		instance:runFunction(cb, data)
 		streams[instance.player] = nil
+		instance:runFunction(cb, data)
 	end)
 end
 
@@ -254,6 +260,7 @@ end
 function net_library.cancelStream()
 	if not streams[instance.player] then SF.Throw("Not currently reading a stream.", 2) end
 	streams[instance.player]:Remove()
+	streams[instance.player] = nil
 end
 
 --- Returns the progress of a running readStream
