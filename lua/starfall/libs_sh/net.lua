@@ -3,7 +3,89 @@ local net = net
 local checkluatype = SF.CheckLuaType
 local IsValid = FindMetaTable("Entity").IsValid
 
-local streams = SF.EntityTable("playerStreams")
+local StreamManager = {
+	__index = {
+		canWriteStream = function(self)
+			self:cleanupWriteStreams()
+			local active = table.Count(self.writeStreams)+table.Count(self.placeholders)
+			return active<16, active
+		end,
+		addWriteStream = function(self, instance)
+			local placeholder = {}
+			local data = {instance}
+			self.placeholders[placeholder] = data
+			return function(stream)
+				if self.placeholders[placeholder] then
+					self.placeholders[placeholder] = nil
+					self.writeStreams[stream] = data
+				else
+					stream:Remove()
+				end
+			end
+		end,
+		cleanupWriteStreams = function(self)
+			for stream in pairs(self.writeStreams) do
+				if net.Stream.WriteStreams.queue[stream.identifier] ~= stream then
+					self.writeStreams[stream] = nil
+				end
+			end
+		end,
+		isWriting = function(self)
+			return not (table.IsEmpty(self.writeStreams) and table.IsEmpty(self.placeholders))
+		end,
+		canReadStream = function(self)
+			return self.readStream==false
+		end,
+		addReadStream = function(self, instance, stream)
+			self.readStream = {instance, stream}
+		end,
+		cancelReadStream = function(self)
+			self.readStream[2]:Remove()
+			self.readStream = false
+		end,
+		isReading = function(self)
+			return self.readStream~=false
+		end,
+		deinitialize = function(self, instance)
+			if self.readStream and self.readStream[1] == instance then
+				self.readStream[2]:Remove()
+				self.readStream = false
+			end
+			for stream, v in pairs(self.writeStreams) do
+				if v[1] == instance then
+					stream:Remove()
+					self.writeStreams[stream] = nil
+				end
+			end
+			for stream, v in pairs(self.placeholders) do
+				if v[1] == instance then
+					self.placeholders[stream] = nil
+				end
+			end
+		end,
+	},
+	__call = function(t, ply)
+		return setmetatable({
+			ply = ply,
+			placeholders = {},
+			writeStreams = {},
+			readStream = false
+		}, t)
+	end,
+	plyStreams = SF.EntityTable("playerStreams"),
+	clearPlaceholders = function(self, instance)
+		for k, v in pairs(self.plyStreams) do
+			for stream, data in pairs(v.placeholders) do
+				if data[1]==instance then
+					v.placeholders[stream] = nil
+				end
+			end
+		end
+	end
+}
+setmetatable(StreamManager, StreamManager)
+getmetatable(StreamManager.plyStreams).__index = function(t, k) local r=StreamManager(k) t[k] = r return r end
+
 local netBurst = SF.BurstObject("net", "net message", 5, 10, "Regen rate of net message burst in kB/sec.", "The net message burst limit in kB.", 1000 * 8)
 SF.NetBurst = netBurst
 
@@ -54,16 +136,14 @@ local netStarted = false
 local netSize = 0
 local netData
 local netReceives = {}
+local plyStreams = StreamManager.plyStreams[instance.player]
 instance.data.net = {receives = netReceives}
 instance:AddHook("initialize", function()
 	getent = instance.Types.Entity.GetEntity
 	vunwrap1 = vec_meta.QuickUnwrap1
 end)
 instance:AddHook("deinitialize", function()
-	if streams[instance.player] then
-		streams[instance.player]:Remove()
-		streams[instance.player] = nil
-	end
+	plyStreams:deinitialize(instance)
 end)
 
 local function write(data)
@@ -81,6 +161,7 @@ local function net_write(unreliable)
 	netSize = 0
 	netData = {}
 	netStarted = false
+	StreamManager:clearPlaceholders(instance)
 end
 
 --- Starts the net message
@@ -93,6 +174,7 @@ function net_library.start(name)
 	netStarted = true
 	netSize = 8*8 -- 8 byte overhead
 	netData = {}
+	StreamManager:clearPlaceholders(instance)
 
 	write{net.WriteString, (#name + 1) * 8, name} -- Include null character
 end
@@ -238,8 +320,15 @@ end
 function net_library.writeStream(str, compress)
 	if not netStarted then SF.Throw("net message not started", 2) end
 	checkluatype (str, TYPE_STRING)
-	if #str > 64e6 then SF.Throw("String is too long!") end
-	write{net.WriteStream, 8*8, str, function() end, compress == false}
+	if #str == 0 then SF.Throw("String is empty!", 2) end
+	if #str > 64e6 then SF.Throw("String is too long!", 2) end
+
+	if not plyStreams:canWriteStream() then SF.Throw("Too many active writeStreams!", 2) end
+	local writePending = plyStreams:addWriteStream(instance)
+	local function writeStreamFunc()
+		writePending(net.WriteStream(str, function() end, compress == false))
+	end
+	write{writeStreamFunc, 8*8}
 end
 
 --- Reads a large string stream from the net message.
@@ -247,28 +336,27 @@ end
 -- @param function cb Callback to run when the stream is finished. The first parameter in the callback is the data. Will be nil if transfer fails or is cancelled
 function net_library.readStream(cb)
 	checkluatype (cb, TYPE_FUNCTION)
-	if streams[instance.player] then SF.Throw("The previous stream must finish before reading another.", 2) end
+	if plyStreams.readStream then SF.Throw("The previous stream must finish before reading another.", 2) end
 
-	streams[instance.player] = net.ReadStream((SERVER and instance.data.net.ply or nil), function(data)
-		streams[instance.player] = nil
+	plyStreams:addReadStream(instance, net.ReadStream((SERVER and instance.data.net.ply or nil), function(data)
+		plyStreams.readStream = false
 		instance:runFunction(cb, data)
-	end)
+	end))
 end
 
 --- Cancels a currently running readStream
 -- @shared
 function net_library.cancelStream()
-	if not streams[instance.player] then SF.Throw("Not currently reading a stream.", 2) end
-	streams[instance.player]:Remove()
-	streams[instance.player] = nil
+	if not plyStreams.readStream then SF.Throw("Not currently reading a stream.", 2) end
+	plyStreams:cancelReadStream()
 end
 
 --- Returns the progress of a running readStream
 -- @shared
 -- @return number The progress ratio 0-1
 function net_library.getStreamProgress()
-	if not streams[instance.player] then SF.Throw("Not currently reading a stream.", 2) end
-	return streams[instance.player]:GetProgress()
+	if not plyStreams.readStream then SF.Throw("Not currently reading a stream.", 2) end
+	return plyStreams.readStream[2]:GetProgress()
 end
 
 --- Writes an integer to the net message
@@ -489,13 +577,14 @@ end
 --- Reads a entity from the net message
 -- @shared
 -- @param function? callback (Client only) optional callback to be ran whenever the entity becomes valid; returns nothing if this is used. The callback passes the entity if it succeeds or nil if it fails.
--- @return Entity The entity that was read
+-- @return Entity? The entity that was read or nil if callback used
 function net_library.readEntity(callback)
 	local index = net.ReadUInt(16)
 	local creationindex = net.ReadUInt(32)
 	if callback ~= nil and CLIENT then
 		checkluatype(callback, TYPE_FUNCTION)
-		SF.WaitForEntity(index, creationindex, function(ent)
+		if not SF.WaitForEntity:checkCount(128) then SF.Throw("Too many callbacks for entity index!: "..index, 2) end
+		SF.WaitForEntity:add(index, creationindex, function(ent)
 			if ent ~= nil then ent = instance.WrapObject(ent) end
 			instance:runFunction(callback, ent)
 		end)
@@ -528,8 +617,22 @@ end
 
 --- Returns whether or not the library is currently reading data from a stream
 -- @return boolean Whether we're currently reading data from a stream
+-- @return boolean Whether we're currently writing data to a stream
 function net_library.isStreaming()
-	return streams[instance.player] ~= nil
+	return plyStreams:isReading(), plyStreams:isWriting()
+end
+
+--- Returns whether a readStream can be initiated
+-- @return boolean Whether a readStream can be initiated
+function net_library.canReadStream()
+	return plyStreams:canReadStream()
+end
+
+--- Returns whether a writeStream can be initiated
+-- @return boolean Whether a writeStream can be initiated
+-- @return number The number of active write streams
+function net_library.canWriteStream()
+	return plyStreams:canWriteStream()
 end
 
 end

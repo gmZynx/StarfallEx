@@ -158,12 +158,22 @@ if CLIENT then
 	--- Sets the sheet color of a player-model
 	-- Can only be used on players, bots, ragdolls, holograms and Starfall NextBots
 	-- @client
-	-- @param Color clr RGB color to use, alpha channel not supported
+	-- @param Color|Vector clr RGB color to use, alpha channel not supported.
 	function ents_methods:setSheetColor(clr)
 		local ent = getent(self)
 		checkpermission(instance, ent, "entities.setRenderProperty")
-		clr = cunwrap(clr)
-		local vec = Vector(clr.r / 255, clr.g / 255, clr.b / 255)
+		
+		local metaType = dgetmeta( clr )
+		local vec
+		if metaType == col_meta then
+			clr = cunwrap(clr)
+			vec = Vector(clr.r / 255, clr.g / 255, clr.b / 255)
+		elseif metaType == vec_meta then
+			vec = vunwrap( clr )
+		else
+			SF.ThrowTypeError("Color or Vector", SF.GetType(clr), 2)
+		end
+
 
 		if Ent_IsPlayer(ent) then
 			Ent_GetTable(ent).SetPlayerColor(ent, vec)
@@ -263,6 +273,32 @@ if sound_library then
 	function sound_library:emitSoundsLeft()
 		return emitSoundBurst:check(instance.player)
 	end
+
+	--- Emits a sound not attached to any entity at the specified position
+	-- @param string snd Sound path
+	-- @param Vector position Where the sound originates from
+	-- @param number? soundLevel Default 75
+	-- @param number? pitchPercent Default 100
+	-- @param number? volume Default 1
+	-- @param number? channel Default CHAN_AUTO or CHAN_WEAPON for weapons
+	-- @param number? dsp Default 1 DSP preset
+	-- @param boolean? nofilter (Optional) Boolean Make the sound play for everyone regardless of range or location. Only affects Server-side sounds.
+	function sound_library.emitSound(snd, position, lvl, pitch, volume, channel, dsp, nofilter)
+		checkluatype(snd, TYPE_STRING)
+		if nofilter~=nil then checkluatype(nofilter, TYPE_BOOL) end
+		SF.CheckSound(instance.player, snd)
+
+		checkpermission(instance, nil, "sound.emitSound")
+		emitSoundBurst:use(instance.player, 1)
+
+		local filter
+		if nofilter and SERVER then
+			filter = RecipientFilter()
+			filter:AddAllPlayers()
+		end
+		
+		EmitSound(snd, vunwrap1(position), 0, channel, volume, lvl, nil, pitch, number, filter)
+	end
 end
 
 --- Plays a sound on the entity
@@ -271,8 +307,11 @@ end
 -- @param number? pitchPercent Default 100
 -- @param number? volume Default 1
 -- @param number? channel Default CHAN_AUTO or CHAN_WEAPON for weapons
-function ents_methods:emitSound(snd, lvl, pitch, volume, channel)
+-- @param number? dsp Default 1 DSP preset
+-- @param boolean? nofilter (Optional) Boolean Make the sound play for everyone regardless of range or location. Only affects Server-side sounds.
+function ents_methods:emitSound(snd, lvl, pitch, volume, channel, dsp, nofilter)
 	checkluatype(snd, TYPE_STRING)
+	if nofilter~=nil then checkluatype(nofilter, TYPE_BOOL) end
 	SF.CheckSound(instance.player, snd)
 
 	local ent = getent(self)
@@ -282,7 +321,14 @@ function ents_methods:emitSound(snd, lvl, pitch, volume, channel)
 	local snds = soundsByEntity[ent]
 	if not snds then snds = {} soundsByEntity[ent] = snds end
 	snds[snd] = true
-	Ent_EmitSound(ent, snd, lvl, pitch, volume, channel)
+
+	local filter
+	if nofilter and SERVER then
+		filter = RecipientFilter()
+		filter:AddAllPlayers()
+	end
+	
+	Ent_EmitSound(ent, snd, lvl, pitch, volume, channel, nil, dsp, filter)
 end
 
 --- Stops a sound on the entity
@@ -1184,8 +1230,9 @@ function ents_methods:getBoneMatrix(bone)
 	return mwrap(Ent_GetBoneMatrix(getent(self), bone))
 end
 
---- Sets the bone matrix of given bone to given matrix. See also Entity:getBoneMatrix.
--- @shared
+if CLIENT then
+--- Sets the bone matrix of given bone to given matrix. Call setupBones to apply all changes.
+-- @client
 -- @param number bone The bone ID
 -- @param VMatrix matrix The matrix to set
 function ents_methods:setBoneMatrix(bone, matrix)
@@ -1195,7 +1242,32 @@ function ents_methods:setBoneMatrix(bone, matrix)
 	checkluatype(bone, TYPE_NUMBER)
 	checkpermission(instance, ent, "entities.setRenderProperty")
 
-	Ent_SetBoneMatrix(ent, bone, matrix)
+	bone = math.Clamp(math.floor(bone), 0, Ent_GetBoneCount(ent)-1)
+
+	local ent_tbl = Ent_GetTable(ent)
+	local boneTbl = ent_tbl.SF_BoneMatrix
+	if matrix then
+		if boneTbl then
+			boneTbl[bone] = matrix
+		else
+			boneTbl = {[bone] = matrix}
+			ent_tbl.SF_BoneMatrix = boneTbl
+			ent:AddCallback("BuildBonePositions", function(ent, bonecount)
+				for i=0, bonecount-1 do
+					if boneTbl[i] then Ent_SetBoneMatrix(ent, i, boneTbl[i]) end
+				end
+			end)
+		end
+	elseif boneTbl then
+		boneTbl[bone] = nil
+	end
+end
+
+--- Invokes the BuildBonePositions of an entity. Should be called after setting all bone matrices.
+-- @client
+function ents_methods:setupBones()
+	Ent_SetupBones(getent(self))
+end
 end
 
 --- Returns the world transform matrix of the entity
@@ -1417,12 +1489,32 @@ function ents_methods:localToWorld(data)
 	return vwrap(Ent_LocalToWorld(getent(self), vunwrap1(data)))
 end
 
---- Converts a direction vector in entity local space to world space
--- @shared
--- @param Vector data Local space vector direction
--- @return Vector data as world space vector direction
-function ents_methods:localToWorldVector(data)
-	return vwrap(Phys_LocalToWorldVector(Ent_GetPhysicsObject(getent(self)), vunwrap1(data)))
+if SERVER then
+	--- Converts a direction vector in entity local space to world space
+	-- @shared
+	-- @param Vector data Local space vector direction
+	-- @return Vector data as world space vector direction
+	function ents_methods:localToWorldVector(data)
+		return vwrap(Phys_LocalToWorldVector(Ent_GetPhysicsObject(getent(self)), vunwrap1(data)))
+	end
+
+	--- Converts a direction vector in world space to entity local space
+	-- @shared
+	-- @param Vector data World space direction vector
+	-- @return Vector data as local space direction vector
+	function ents_methods:worldToLocalVector(data)
+		return vwrap(Phys_WorldToLocalVector(Ent_GetPhysicsObject(getent(self)), vunwrap1(data)))
+	end
+else
+	function ents_methods:localToWorldVector(data)
+		local ent = getent(self)
+		return vwrap(Ent_LocalToWorld(ent, vunwrap1(data)) - Ent_GetPos(ent))
+	end
+
+	function ents_methods:worldToLocalVector(data)
+		local ent = getent(self)
+		return vwrap(Ent_WorldToLocal(ent, vunwrap1(data) + Ent_GetPos(ent)))
+	end
 end
 
 --- Converts an angle in entity local space to world space
@@ -1439,14 +1531,6 @@ end
 -- @return Vector data as local space vector
 function ents_methods:worldToLocal(data)
 	return vwrap(Ent_WorldToLocal(getent(self), vunwrap1(data)))
-end
-
---- Converts a direction vector in world space to entity local space
--- @shared
--- @param Vector data World space direction vector
--- @return Vector data as local space direction vector
-function ents_methods:worldToLocalVector(data)
-	return vwrap(Phys_WorldToLocalVector(Ent_GetPhysicsObject(getent(self)), vunwrap1(data)))
 end
 
 --- Converts an angle in world space to entity local space

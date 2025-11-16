@@ -98,6 +98,12 @@ game_library.getRealTickInterval = engine.AbsoluteFrameTime
 -- @return number Ticks
 game_library.getTickCount = engine.TickCount
 
+--- Returns the public IP address and port of the current server
+-- @name game_library.getIPAddress
+-- @class function
+-- @return string The IP address and port in the format "x.x.x.x:x"
+game_library.getIPAddress = game.GetIPAddress
+
 --- Checks if a model exists in the game files
 -- @param string path Filepath in game folder
 -- @return boolean? True if exists, false if not, nil if error
@@ -108,19 +114,33 @@ function game_library.modelExists(path)
 	return file.Exists(path, "GAME")
 end
 
+--- Returns the ammo id for a given name
+-- @name game_library.getAmmoID
+-- @class function
+-- @param string name The ammo name
+-- @return number The id or -1 if not found
+game_library.getAmmoID = game.GetAmmoID
+
+--- Returns the ammo name for a given id
+-- @name game_library.getAmmoName
+-- @class function
+-- @param number id The ammo id
+-- @return string The ammo name
+game_library.getAmmoName = game.GetAmmoName
+
 --- Returns AmmoData for given id
+-- @name game_library.getAmmoData
+-- @class function
 -- @param number id See https://wiki.facepunch.com/gmod/Default_Ammo_Types
 -- @return table AmmoData, see https://wiki.facepunch.com/gmod/Structures/AmmoData
-function game_library.getAmmoData(id)
-	return game.GetAmmoData(id)
-end
+game_library.getAmmoData = game.GetAmmoData
 
 --- Returns the real maximum amount of ammo of given ammo ID, regardless of the setting of gmod_maxammo convar
+-- @name game_library.getAmmoMax
+-- @class function
 -- @param number id See https://wiki.facepunch.com/gmod/Default_Ammo_Types
 -- @return number The maximum amount of reserve ammo a player can hold of this ammo type
-function game_library.getAmmoMax(id)
-	return game.GetAmmoMax(id)
-end
+game_library.getAmmoMax = game.GetAmmoMax
 
 --- Returns the worldspawn entity
 -- @return Entity Worldspawn
@@ -140,18 +160,18 @@ function game_library.getPlayerModels()
 end
 
 --- Given a 64bit SteamID will return a STEAM_0: style Steam ID
+-- @name game_library.steamIDFrom64
+-- @class function
 -- @param string id The 64 bit Steam ID
 -- @return string STEAM_0 style Steam ID
-function game_library.steamIDFrom64(id)
-	return util.SteamIDFrom64(id)
-end
+game_library.steamIDFrom64 = util.SteamIDFrom64
 
 --- Given a STEAM_0 style Steam ID will return a 64bit Steam ID
+-- @name game_library.steamIDTo64
+-- @class function
 -- @param string id The STEAM_0 style id
 -- @return string 64bit Steam ID
-function game_library.steamIDTo64(id)
-	return util.SteamIDTo64(id)
-end
+game_library.steamIDTo64 = util.SteamIDTo64
 
 if SERVER then
 
