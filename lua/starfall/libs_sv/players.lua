@@ -291,7 +291,7 @@ function player_methods:say(text, teamOnly)
 	if instance.player ~= ply then SF.Throw("Player say can only be used on yourself!", 2) end
 	if CurTime() < (ply.sf_say_cd or 0) then SF.Throw("Player say must wait 0.5s between calls!", 2) end
 	ply.sf_say_cd = CurTime() + 0.5
-	Ply_Say(ply, text, teamOnly)
+	instance:runExternal(Ply_Say, ply, text, teamOnly)
 end
 
 --- Sets the armor of the player.
@@ -412,7 +412,7 @@ function player_methods:setFriction(val)
 end
 
 --- Sets the player's weapon color
--- @param vector col The new color with values 0-1 in each vector component
+-- @param Vector col The new color with values 0-1 in each vector component
 function player_methods:setWeaponColor(col)
 	local ent = getply(self)
 	checkpermission(instance, ent, "entities.setPlayerRenderProperty")

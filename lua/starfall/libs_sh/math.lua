@@ -6,6 +6,7 @@ local checkluatype = SF.CheckLuaType
 -- @class library
 -- @field huge inf error-float. Represents infinity.
 -- @field pi mathematical constant pi (3.1415926535898).
+-- @field tau mathematical constant tau (2*pi = 6.2831853071796).
 -- @libtbl math_library
 SF.RegisterLibrary("math")
 
@@ -230,6 +231,8 @@ math_library.modf = math.modf
 math_library.normalizeAngle = math.NormalizeAngle
 
 math_library.pi = math.pi
+
+math_library.tau = math.tau
 
 --- Returns x raised to the power y
 -- @class function
@@ -606,5 +609,21 @@ math_library.easeOutQuint = math.ease.OutQuint
 -- @param number fraction Fraction of the progress to ease, from 0 to 1
 -- @return number "Eased" Value
 math_library.easeOutSine = math.ease.OutSine
+
+--- Returns the averaged of all numbers provided
+-- @class function
+-- @param table numbers Any amount of number values
+-- @return number Number average of all values
+function math_library.mean( numbers )
+	checkluatype( numbers, TYPE_TABLE )
+	
+	local sum = 0
+
+	for i = 1, #numbers do
+		sum = sum + numbers[i]
+	end
+
+	return sum / #numbers
+end
 
 end
