@@ -258,7 +258,17 @@ instance.WireToSF = WireToSF
 
 local SFToWire =
 {
-	NORMAL = function(data) checkluatype(data, TYPE_NUMBER, 2) return data end,
+	NORMAL = function(data)
+		local dataType = TypeID( data )
+		
+		if dataType == TYPE_NUMBER then
+			return data
+		elseif dataType == TYPE_BOOL then
+			return data and 1 or 0
+		else
+			SF.ThrowTypeError( "number or bool", SF.GetType( data ), 2 )
+		end
+	end,
 	STRING = function(data) checkluatype(data, TYPE_STRING, 2) return data end,
 	VECTOR = function(data) return vunwrap(data) end,
 	VECTOR2 = function(data) return v2unwrap(data) end,
@@ -501,7 +511,7 @@ local ValidWireMat = { 	["cable/rope"] = true, ["cable/cable2"] = true, ["cable/
 -- @param Entity entI Entity with input
 -- @param Entity entO Entity with output
 -- @param string inputname Input to be wired
--- @param string outputname Output to be wired
+-- @param string outputname Output to be wired. May be "entity" or "wirelink" to specify an entity/wirelink output
 -- @param number? width Width of the wire(optional)
 -- @param Color? color Color of the wire(optional)
 -- @param string? materialName Material of the wire(optional), Valid materials are cable/rope, cable/cable2, cable/xbeam, cable/redlaser, cable/blue_elec, cable/physbeam, cable/hydra, arrowire/arrowire, arrowire/arrowire2
@@ -531,14 +541,19 @@ function wire_library.create(entI, entO, inputname, outputname, width, color, ma
 	checkpermission(instance, entI, "wire.createWire")
 	checkpermission(instance, entO, "wire.createWire")
 
+	if outputname == "entity" or outputname == "Create Entity" then
+		WireLib.CreateEntityOutput( nil, entO, {true} )
+		outputname = "entity"
+	elseif outputname == "wirelink" or outputname == "Create Wirelink" then
+		WireLib.CreateWirelinkOutput( nil, entO, {true} )
+		outputname = "wirelink"
+	end
+
 	if not entI.Inputs then SF.Throw("Target has no valid inputs") end
 	if not entO.Outputs then SF.Throw("Source has no valid outputs") end
 
 	if inputname == "" or not entI.Inputs[inputname] then SF.Throw("Invalid target input: " .. inputname) end
-	if outputname == "entity" then WireLib.CreateEntityOutput( nil, entO, {true} )
-	elseif outputname == "wirelink" then WireLib.CreateWirelinkOutput( nil, entO, {true} )
-	elseif outputname == "" or not entO.Outputs[outputname] then SF.Throw("Invalid source output: " .. outputname)
-	end
+	if outputname == "" or not entO.Outputs[outputname] then SF.Throw("Invalid source output: " .. outputname) end
 
 	WireLib.Link_Start(instance.player:UniqueID(), entI, entI:WorldToLocal(entI:GetPos()), inputname, material, color, width)
 	WireLib.Link_End(instance.player:UniqueID(), entO, entO:WorldToLocal(entO:GetPos()), outputname, instance.player)
@@ -629,14 +644,17 @@ end
 local function triggerInput(ent, k, v)
 	local input, convert = checkinput(Ent_GetTable(ent).Inputs, k, SFToWire)
 	instance:runExternal(WireLib.TriggerInput, ent, k, convert(v))
+	instance:checkCpu()
 end
 local function triggerOutput(ent, k, v)
 	local output, convert = checkoutput(Ent_GetTable(ent).Outputs, k, SFToWire)
 	instance:runExternal(Wire_TriggerOutput, ent, k, convert(v))
+	instance:checkCpu()
 end
 local function triggerCell(ent, k, v)
 	local WriteCell = Ent_GetTable(ent).WriteCell or SF.Throw("Entity does not have WriteCell capability", 3)
 	instance:runExternal(WriteCell, ent, k, v)
+	instance:checkCpu()
 end
 
 local function readInput(ent, k)
@@ -650,6 +668,7 @@ end
 local function readCell(ent, k)
 	local ReadCell = Ent_GetTable(ent).ReadCell or SF.Throw("Entity does not have ReadCell capability", 3)
 	local ok, n = instance:runExternal(ReadCell, ent, k)
+	instance:checkCpu()
 	return ok and tonumber(n) or 0
 end
 

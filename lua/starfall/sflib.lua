@@ -1212,7 +1212,7 @@ do
 	-- Takes values returned from starfall hook and returns what should be passed to the gmod hook
 	-- @param gmoverride Whether this hook should override the gamemode function (makes the hook run last, but adds a little overhead)
 	function SF.hookAdd(realname, hookname, customargfunc, customretfunc, gmoverride)
-		hookname = hookname or realname:lower()
+		hookname = (hookname or realname):lower()
 		registered_instances[hookname] = {}
 		if gmoverride then
 			local hookfunc = getHookFunc(registered_instances[hookname], hookname, customargfunc, customretfunc)
@@ -1325,28 +1325,18 @@ function SF.SteamIDConcommand(name, callback, helptext, findplayer, completionli
 end
 
 --- Require .dll but doesn't throw an error. Returns true if success or false if fail.
-function SF.Require(moduleName)
-	local realmPrefix = SERVER and "sv" or "cl"
-	local osSuffix
-	if system.IsWindows() then
-		osSuffix = (jit.arch~="x64" and "win32" or "win64")
-	elseif system.IsLinux() then
-		osSuffix = (jit.arch~="x64" and "linux" or "linux64")
-	elseif system.IsOSX() then 
-		osSuffix = (jit.arch~="x64" and "osx" or "osx64")
-	else
-		error("couldn't determine system type?")
-	end
+function SF.Require(name)
+	if util.IsBinaryModuleInstalled(name) then
+		local ok, err = pcall(require, name)
 
-	if file.Exists("lua/bin/gm"..realmPrefix.."_"..moduleName.."_"..osSuffix..".dll", "GAME") then
-		local ok, err = pcall(require, moduleName)
 		if ok then
 			return true
 		else
-			ErrorNoHalt(err)
+			ErrorNoHalt(err .. "\n")
 			return false
 		end
 	end
+
 	return false
 end
 
