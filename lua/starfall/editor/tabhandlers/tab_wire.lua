@@ -85,11 +85,6 @@ TabHandler.ACControlStyle = CreateClientConVar( "sf_editor_wire_ac_controlstyle"
 TabHandler.ACAuto = CreateClientConVar( "sf_editor_wire_ac_auto", "1", true, false )
 TabHandler.ACWithParams = CreateClientConVar( "sf_editor_wire_ac_withparams", "1", true, false )
 
-cvars.AddChangeCallback("sf_editor_wire_htmlbackground",function(_,_,url)
-	TabHandler:UpdateHtmlBackground()
-end)
-
-
 
 ---------------------
 -- Colors
@@ -168,12 +163,11 @@ function TabHandler:Init()
 	self.Modes.Starfall = include("starfall/editor/syntaxmodes/starfall.lua")
 	colors = SF.Editor.Themes.CurrentTheme
 	self:LoadSyntaxColors()
-	self:UpdateHtmlBackground()
+	SF.CvarCallback(self.HtmlBackgroundConvar, function(val) self:UpdateHtmlBackground(val) end, "string")
 end
 TabHandler.DocsFinished = TabHandler.Init
 
-function TabHandler:UpdateHtmlBackground()
-	local url = self.HtmlBackgroundConvar:GetString()
+function TabHandler:UpdateHtmlBackground(url)
 	if url=="" then self.HtmlBackground = false return end
 	self.HtmlBackground = true
 
@@ -916,6 +910,7 @@ function PANEL:OnMouseReleased(code)
 end
 
 function PANEL:SetCode(text)
+	text = SF.Editor.normalizeCode(text)
 	if text == self:GetCode() then return end
 	self.Rows = {}
 	self.RowTexts = {}
@@ -1592,7 +1587,7 @@ function PANEL:ScrollCaret()
 	local visCaret = self.Caret[1] - self:GetRowOffset(self.Caret[1])
 	if visCaret - self.Scroll[1] < 3 then
 		local line = self.Caret[1]-3
-		while line > 1 and (self.Rows[line][3] or visCaret-line < 3)  do
+		while line > 1 and ((self.Rows[line] and self.Rows[line][3]) or visCaret-line < 3)  do
 			line = line - 1
 		end
 		self.ScrollBar:SetScrollFix(math.max(line,1))
@@ -1600,7 +1595,7 @@ function PANEL:ScrollCaret()
 	if visCaret - self.Scroll[1] > self.Size[1] - 2 then
 		local line = self.Scroll[1]
 		local lines = #self.Rows
-		while line <= lines and (self.Rows[line][3] or visCaret - line > self.Size[1] - 2) do
+		while line <= lines and ((self.Rows[line] and self.Rows[line][3]) or visCaret - line > self.Size[1] - 2) do
 			line = line + 1
 		end
 		self.ScrollBar:SetScrollFix(math.max(line,1))
@@ -3221,10 +3216,7 @@ function PANEL:AutocompleteCreate()
 		end,
 	}, {__index = function() return function() end end})
 
-	local function setThink() acPanel.Think = controlSchemes[TabHandler.ACControlStyle:GetInt()] end
-	setThink()
-	cvars.RemoveChangeCallback(TabHandler.ACControlStyle:GetName(), "autocompletestyle")
-	cvars.AddChangeCallback(TabHandler.ACControlStyle:GetName(), setThink, "autocompletestyle")
+	SF.CvarCallback(TabHandler.ACControlStyle, function(val) acPanel.Think = controlSchemes[math.Clamp(math.floor(val), 0, #controlSchemes)] end, "number")
 
 	local suggestionlist = vgui.Create( "DPanelList", acPanel )
 	suggestionlist:DockMargin(6, 6, 6, 6)
@@ -3412,13 +3404,8 @@ function PANEL:GetSyntaxColor(name)
 end
 
 function PANEL:SyntaxColorLine(line)
-	prev = prev or {}
 	if #self.Rows[line] > 2048 then -- Too long to parse
 		local cols = TabHandler.Modes.Text.SyntaxColorLine(self, line)
-		for k,v in pairs(prev) do -- Pass along unfinished etc
-			if isnumber(k) then continue end
-			cols[k] = v
-		end
 		return cols
 	end
 	local cols = self:DoAction("SyntaxColorLine", line)

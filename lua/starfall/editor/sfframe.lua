@@ -99,14 +99,14 @@ function SF.DefaultCode()
 	elseif file.Exists("starfall/default.lua", "DATA") then
 		return file.Read("starfall/default.lua", "DATA")
 	else
-		code = string.gsub(defaultCode, "@author", "@author "..string.gsub(LocalPlayer():Nick(), "[^%w%s%p_]", ""))
+		local code = string.gsub(defaultCode, "@author", "@author "..string.gsub(LocalPlayer():Nick(), "[^%w%s%p_]", ""))
 		file.Write("starfall/default.txt", code)
 		return code
 	end
 end
 
 cvars.AddChangeCallback("sf_editor_layout", function()
-	RunConsoleCommand("sf_editor_restart")
+	timer.Simple(0, function() RunConsoleCommand("sf_editor_restart") end)
 end)
 
 Editor.CreatedFonts = {}
@@ -176,11 +176,8 @@ function Editor:Init()
 	self.Components = {}
 
 	-- Controls the auto reload functionality
-	self.autoReloadEnabled = Editor.EditorFileAutoReload:GetBool()
-	self.autoReloadInterval = Editor.EditorFileAutoReloadInterval:GetFloat()
-	cvars.AddChangeCallback(Editor.EditorFileAutoReload:GetName(), function() self:setFileAutoReload(Editor.EditorFileAutoReload:GetBool()) end)
-	cvars.AddChangeCallback(Editor.EditorFileAutoReloadInterval:GetName(), function() self:setFileAutoReloadInterval(Editor.EditorFileAutoReloadInterval:GetFloat()) end)
-
+	SF.CvarCallback(Editor.EditorFileAutoReloadInterval, function(val) self:setFileAutoReloadInterval(val) end, "number")
+	SF.CvarCallback(Editor.EditorFileAutoReload, function(val) self:setFileAutoReload(val) end, "boolean")
 
 	-- Load border colors, position, & size
 	self:LoadEditorSettings()
@@ -204,11 +201,6 @@ function Editor:Init()
 	self:SetV(false)
 
 	self:InitShutdownHook()
-
-	-- This should create the timers
-	if self.EditorFileAutoReload then
-		self:setFileAutoReload(true)
-	end
 end
 
 local size = CreateClientConVar("sf_editor_size", "800_600", true, false)
@@ -456,7 +448,7 @@ function Editor:GetLastTab() return self.LastTab end
 
 function Editor:SetLastTab(Tab) self.LastTab = Tab end
 
-function Editor:GetActiveTab() 
+function Editor:GetActiveTab()
 	local tab = self.C.TabHolder:GetActiveTab()
 	if tab then return tab end
 	self:CreateTab()
@@ -1321,8 +1313,10 @@ function Editor:TranslateValues(panel, x, y)
 end
 
 function Editor:OpenCode(path, code, codeOnDisk, forcenewtab, checkFileExists)
+	code = SF.Editor.normalizeCode(code)
+
 	if path and checkFileExists and file.Exists("starfall/" .. path, "DATA") then
-		if codeOnDisk==nil then codeOnDisk = file.Read("starfall/" .. path, "DATA") or "" end
+		if codeOnDisk==nil then codeOnDisk = SF.Editor.normalizeCode(file.Read("starfall/" .. path, "DATA") or "") end
 		if code==codeOnDisk then return end
 	end
 
@@ -1467,6 +1461,9 @@ function Editor:ChosenFile(Line, code)
 	self:GetCurrentTabContent().chosenfile = Line
 	if Line and not code then
 		code = file.Read(Line)
+		if code then
+			code = SF.Editor.normalizeCode(code)
+		end
 	end
 	self:GetCurrentTabContent().savedCode = code
 
@@ -1653,6 +1650,7 @@ function Editor:LoadFile(Line, forcenewtab)
 
 	local str = file.Read(Line, "DATA")
 	if str then
+		str = SF.Editor.normalizeCode(str)
 		self:OpenCode(Line, str, str, forcenewtab)
 	else
 		SF.AddNotify(LocalPlayer(), "Erroring opening file: " .. Line, "ERROR", 7, "ERROR1")
@@ -1699,7 +1697,7 @@ function Editor:ReloadTab(tabIndex, interactive)
 		end
 
 		tabContent:SetCode(fileContent)
-		tabContent.savedCode = fileContent
+		tabContent.savedCode = SF.Editor.normalizeCode(fileContent)
 		tabContent.autoReloadLastModified = fileLastModified
 		self:UpdateTabText(tab)
 		if tabIndex == activeTabIndex then
@@ -1876,7 +1874,7 @@ end
 vgui.Register("StarfallEditorFrame", Editor, "DFrame")
 
 -- Starfall Users
-PANEL  = {}
+local PANEL = {}
 
 function PANEL:UpdatePlayers(players)
 	local sortedplayers = {}
@@ -2020,7 +2018,7 @@ function PANEL:UpdatePlayers(players)
 			local svtotal = 0
 			local cltotal = 0
 			for instance, _ in pairs(SF.playerInstances[ply]) do
-				svtotal = svtotal + (instance.entity:IsValid() and instance.entity:GetNWInt("CPUus") or 0)
+				svtotal = svtotal + (instance.entity:IsValid() and instance.entity:GetCPUus("CPUus") or 0)
 				cltotal = cltotal + instance.perf.cpuAverage
 			end
 			cpuServerText:SetText(string.format("SV CPU: %3.1f us", svtotal))

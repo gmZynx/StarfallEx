@@ -390,6 +390,13 @@ else
 	-- @class hook
 	-- @client
 	add("OnContextMenuClose")
+
+	--- Called whenever a CUserCmd is made for the local player. This runs twice per frame, one for movement one for camera. You can use cmd:getCommandNumber to check which one it is if you want to only run on one of them. Camera will have a 0 command number.
+	-- @name CreateMove
+	-- @class hook
+	-- @client
+	-- @param CUserCmd cmd The UserCmd being created
+	add("CreateMove")
 end
 
 -- Shared hooks
@@ -415,13 +422,13 @@ add("PlayerNoClip")
 -- @param number volume Volume of the footstep
 -- @return boolean? Return true to prevent default step sound (only on chip owner)
 add("PlayerFootstep", nil, function(instance, ply, pos, foot, sound, volume)
-    return true, {
-        instance.WrapObject(ply),
-        instance.Types.Vector.Wrap(pos),
-        foot,
-        sound,
-        volume,
-    }
+	return true, {
+		instance.WrapObject(ply),
+		instance.Types.Vector.Wrap(pos),
+		foot,
+		sound,
+		volume,
+	}
 end, returnOnlyOnYourself )
 
 --- Called when a player jumps.
@@ -531,7 +538,6 @@ end)
 -- @shared
 -- @param Entity ent Entity being removed
 -- @param boolean fullupdate If clientside, will be true if the entity was removed by a fullupdate
-add("EntityRemoved")
 
 --- Called when an entity is broken
 -- @name PropBreak
@@ -609,6 +615,31 @@ add("StartEntityDriving")
 -- @shared
 add("Tick")
 
+--- This is basically a shared version of createMove.
+-- @name StartCommand
+-- @class hook
+-- @shared
+-- @param Player ply Player whose command is being processed
+-- @param CUserCmd cmd The UserCmd being processed
+add("StartCommand")
+
+--- Called each UserCmd for each player to transfer information from the UserCmd to the CMoveData before the move is processed.
+-- @name SetupMove
+-- @class hook
+-- @shared
+-- @param Player ply Player whose move is being setup
+-- @param CMoveData move The MoveData being processed
+-- @param CUserCmd cmd The UserCmd being processed
+add("SetupMove")
+
+--- Called each UserCmd for each player after their move has been processed.
+-- @name FinishMove
+-- @class hook
+-- @shared
+-- @param Player ply Player whose move is being finished
+-- @param CMoveData move The MoveData being processed
+add("FinishMove")
+
 --- Called when starfall chip errors
 -- @name StarfallError
 -- @class hook
@@ -669,11 +700,6 @@ SF.RegisterLibrary("hook")
 
 
 return function(instance)
-
-local getent
-instance:AddHook("initialize", function()
-	getent = instance.Types.Entity.GetEntity
-end)
 
 instance:AddHook("deinitialize", function()
 	SF.HookDestroyInstance(instance)
@@ -744,7 +770,7 @@ local hookrun = hook_library.run
 function hook_library.runRemote(recipient, ...)
 	local recipients
 	if recipient then
-		local ent = getent(recipient)
+		local ent = eunwrap(recipient)
 		if not ent.instance then SF.Throw("Entity has no starfall instance", 2) end
 		recipients = {
 			[ent.instance] = true

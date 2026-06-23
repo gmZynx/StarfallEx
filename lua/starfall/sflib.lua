@@ -97,6 +97,18 @@ hook.Add("InitPostEntity","SF_SanitizeTypeMetatables",function()
 			return unpack(result)
 		end
 	end
+	if CLIENT and not (WireLib and WireLib.__old_renderhalos) then
+		local old_renderhalos = hook.GetTable().PostDrawEffects.RenderHalos
+		if old_renderhalos ~= nil then
+			hook.Add("PostDrawEffects","RenderHalos", function()
+				if hook.Run("ShouldDrawHalos") == false then return end
+
+				old_renderhalos()
+			end)
+		else
+			ErrorNoHalt("RenderHalos detour failed (RenderHalos hook not found)!")
+		end
+	end
 end)
 
 local removedHooks = setmetatable({}, {__index=function(t,k) local r={} t[k]=r return r end})
@@ -133,6 +145,59 @@ end
 -------------------------------------------------------------------------------
 -- Declare Basic Starfall Types
 -------------------------------------------------------------------------------
+
+SF.RingQueue = {
+	__index = {
+		push = function(self, item)
+			if self.writei%self.size + 1 == self.readi then self:grow() end
+			self[self.writei] = item
+			self.writei = self.writei%self.size + 1
+		end,
+		pop = function(self)
+			if self.readi == self.writei then return nil end
+			local ret = self[self.readi]
+			self[self.readi] = nil
+			self.readi = self.readi%self.size + 1
+			return ret
+		end,
+		isEmpty = function(self)
+			return self.readi == self.writei
+		end,
+		front = function(self)
+			return self[self.readi]
+		end,
+		grow = function(self)
+			if self.writei < self.size then
+				for i=self.writei+1, self.size do
+					self[i + self.size] = self[i]
+					self[i] = nil
+				end
+				self.readi = self.readi + self.size
+			end
+			self.size = self.size*2
+		end,
+	},
+	__call = function(t, size)
+		return setmetatable({readi = 1, writei = 1, size = size}, t)
+	end
+}
+setmetatable(SF.RingQueue, SF.RingQueue)
+
+function SF.CvarCallback(cvar, callback, typename, dontInit)
+	local converter
+	if typename=="number" then
+		converter = function(x) return tonumber(x) or tonumber(cvar:GetDefault()) end
+	elseif typename=="string" then
+		converter = function(x) return x end
+	elseif typename=="boolean" then
+		converter = function(x) return tobool(x) end
+	else
+		error("Unsupported type!")
+	end
+	cvars.RemoveChangeCallback(cvar:GetName(), "sf")
+	cvars.AddChangeCallback(cvar:GetName(), function(_,_,val) callback(converter(val)) end, "sf")
+	if not dontInit then callback(converter(cvar:GetString())) end
+end
 
 -- Returns a class that manages a table of entity keys
 function SF.EntityTable(key, destructor, dontwait)
@@ -231,14 +296,10 @@ SF.BurstObject = {
 		}
 
 		local ratename = "sf_"..cvarname.."_burstrate"..(CLIENT and "_cl" or "")
-		local ratecvar = CreateConVar(ratename, tostring(rate), FCVAR_ARCHIVE, ratehelp)
-		t.rate = ratecvar:GetFloat()*scale
-		cvars.AddChangeCallback(ratename, function() t.rate = ratecvar:GetFloat()*scale end)
+		SF.CvarCallback(CreateConVar(ratename, tostring(rate), FCVAR_ARCHIVE, ratehelp), function(val) t.rate = val*scale end, "number")
 
 		local maxname = "sf_"..cvarname.."_burstmax"..(CLIENT and "_cl" or "")
-		local maxcvar = CreateConVar(maxname, tostring(max), FCVAR_ARCHIVE, maxhelp)
-		t.max = maxcvar:GetFloat()*scale
-		cvars.AddChangeCallback(maxname, function() t.max = maxcvar:GetFloat()*scale end)
+		SF.CvarCallback(CreateConVar(maxname, tostring(max), FCVAR_ARCHIVE, maxhelp), function(val) t.max = val*scale end, "number")
 
 		return setmetatable(t, p)
 	end
@@ -299,16 +360,10 @@ SF.LimitObject = {
 			counters = SF.EntityTable("limit"..cvarname)
 		}
 		getmetatable(t.counters).__index = function(t,k) t[k]=0 return 0 end
-
-		local maxname = "sf_"..cvarname.."_max"..(CLIENT and "_cl" or "")
-		local maxcvar = CreateConVar(maxname, tostring(max), FCVAR_ARCHIVE, maxhelp)
+		
 		scale = scale or 1
-		local function calcMax()
-			t.max = maxcvar:GetFloat()*scale
-			if t.max<0 then t.max = math.huge end
-		end
-		calcMax()
-		cvars.AddChangeCallback(maxname, calcMax)
+		local maxname = "sf_"..cvarname.."_max"..(CLIENT and "_cl" or "")
+		SF.CvarCallback(CreateConVar(maxname, tostring(max), FCVAR_ARCHIVE, maxhelp), function(val) t.max = val*scale if t.max<0 then t.max = math.huge end end, "number")
 
 		return setmetatable(t, p)
 	end
@@ -989,34 +1044,33 @@ SF.HttpTextureLoader = {
 			Panel.OnFinishLoadingDocument = function() self:nextRequest() end
 			self.Panel = Panel
 
-			self.queue[1] = request
+			self.queue:push(request)
 			self.request = self.request_postInit
 		end,
 		
 		request_postInit = function(self, request)
-			local len = #self.queue
-			self.queue[len + 1] = request
-			if len==0 then timer.Simple(0, function() self:nextRequest() end) end
+			self.queue:push(request)
+			if request == self.queue:front() then self:nextRequest() end
 		end,
 
 		nextRequest = function(self)
-			local request = self.queue[1]
-			request:load(self)
-			timer.Create(self.timeoutstr, 10, 1, function() request:destroy() end)
-		end,
-
-		pop = function(self)
-			table.remove(self.queue, 1)
-			if #self.queue > 0 then
-				self:nextRequest()
+			local nextRequest = self.queue:front()
+			if nextRequest then
+				timer.Simple(0, function() nextRequest:load(self) end)
+				timer.Create(self.timeoutstr, 10, 1, function() nextRequest:destroy() end)
 			else
 				timer.Remove(self.timeoutstr)
 			end
-		end
+		end,
+
+		pop = function(self)
+			self.queue:pop()
+			self:nextRequest()
+		end,
 	},
 	__call = function(p)
 		local ret = setmetatable({
-			queue = {},
+			queue = SF.RingQueue(128),
 		}, p)
 		ret.request = ret.initialize
 		ret.timeoutstr = "SF_URLTextureTimeout"..string.format("%p",ret)
@@ -1395,7 +1449,7 @@ function SF.ThrowTypeError(expected, got, level, msg)
 	SF.Throw((msg and #msg>0 and (msg .. " ") or "") .. "Type mismatch (Expected " .. expected .. ", got " .. got .. ") in function " .. funcname, level)
 end
 
---- Lookup table of TYPE > name
+--- Lookup table of TYPE > name, https://wiki.facepunch.com/gmod/Enums/TYPE
 SF.TYPENAME = {
 	[TYPE_NONE]             = "Invalid type",
 	[TYPE_NIL]              = "nil",
@@ -1415,7 +1469,9 @@ SF.TYPENAME = {
 	[TYPE_RESTORE]          = "IRestore",
 	[TYPE_DAMAGEINFO]       = "CTakeDamageInfo",
 	[TYPE_EFFECTDATA]       = "CEffectData",
-	[TYPE_RECIPIENTFILTER]  = "CUserCmd",
+	[TYPE_MOVEDATA]         = "CMoveData",
+	[TYPE_RECIPIENTFILTER]  = "CRecipientFilter",
+	[TYPE_USERCMD]          = "CUserCmd",
 	[TYPE_SCRIPTEDVEHICLE]  = "ScriptedVehicle", -- Depricated, also TYPE Enum doesnt specify the name so this it is
 	[TYPE_MATERIAL]         = "IMaterial",
 	[TYPE_PANEL]            = "Panel",
@@ -2396,9 +2452,25 @@ do
 	string_library.toMinutesSeconds = string.ToMinutesSeconds string_library.ToMinutesSeconds = string.ToMinutesSeconds
 	string_library.toMinutesSecondsMilliseconds = string.ToMinutesSecondsMilliseconds string_library.ToMinutesSecondsMilliseconds = string.ToMinutesSecondsMilliseconds
 	string_library.toTable = string.ToTable string_library.ToTable = string.ToTable
-	string_library.trim = string.Trim string_library.Trim = string.Trim
-	string_library.trimLeft = string.TrimLeft string_library.TrimLeft = string.TrimLeft
-	string_library.trimRight = string.TrimRight string_library.TrimRight = string.TrimRight
+	function string_library.trim(str, c)
+		if c~=nil then checkluatype(c, TYPE_STRING) c=c.."*" else c="%s*" end checkregex(str, c)
+		local _, start = string.find(str, "^"..c)
+		local stop = string.find(str, c.."$")
+		return string.sub(str, start + 1, stop - 1)
+	end
+	string_library.Trim = string_library.trim
+	function string_library.trimLeft(str, c)
+		if c~=nil then checkluatype(c, TYPE_STRING) c=c.."*" else c="%s*" end checkregex(str, c)
+		local _, start = string.find(str, "^"..c)
+		return string.sub(str, start + 1)
+	end
+	string_library.TrimLeft = string_library.trimLeft
+	function string_library.trimRight(str, c)
+		if c~=nil then checkluatype(c, TYPE_STRING) c=c.."*" else c="%s*" end checkregex(str, c)
+		local stop = string.find(str, c.."$")
+		return string.sub(str, 1, stop - 1)
+	end
+	string_library.TrimRight = string_library.trimRight
 	string_library.upper = string.upper
 	string_library.normalizePath = SF.NormalizePath
 

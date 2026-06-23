@@ -16,7 +16,14 @@ ENT.States          = {
 	None = 3,
 }
 
-local IsValid = FindMetaTable("Entity").IsValid
+local ENTMETA = FindMetaTable("Entity")
+local Ent_IsValid, Ent_GetTable = ENTMETA.IsValid, ENTMETA.GetTable
+
+function ENT:SetupDataTables()
+	self:NetworkVar("Int", 0, "CPUus")
+	self:NetworkVar("Int", 1, "CPUstate")
+	self:NetworkVar("Float", 0, "CPUpercent")
+end
 
 function ENT:Compile(sfdata)
 	self:Destroy()
@@ -53,7 +60,7 @@ function ENT:Compile(sfdata)
 
 	instance.runOnError = function(err)
 		-- Have to make sure it's valid because the chip can be deleted before deinitialization and trigger errors
-		if IsValid(self) then
+		if Ent_IsValid(self) then
 			self:Error(err)
 		end
 	end
@@ -64,7 +71,7 @@ function ENT:Compile(sfdata)
 	if SERVER then
 		self.ErroredPlayers = {}
 		self:SetColor4Part(255, 255, 255, select(4, self:GetColor4Part()))
-		self:SetNWInt("State", self.States.Normal)
+		self:SetCPUstate(self.States.Normal)
 
 		if self.Inputs then
 			for k, v in pairs(self.Inputs) do
@@ -116,7 +123,7 @@ function ENT:Error(err)
 	local traceback = err.traceback
 
 	if SERVER then
-		self:SetNWInt("State", self.States.Error)
+		self:SetCPUstate(self.States.Error)
 		self:SetColor4Part(255, 0, 0, 255)
 	end
 
@@ -133,25 +140,31 @@ local function MenuOpen( ContextMenu, Option, Entity, Trace )
 	local SubMenu = Option:AddSubMenu()
 	SubMenu:AddOption("Restart Clientside", function ()
 		ent:Compile()
-	end)
+	end):SetIcon("icon16/arrow_refresh.png")
+
 	SubMenu:AddOption("Terminate Clientside", function ()
 		ent:Error({message = "Terminated", traceback = ""})
-	end)
+	end):SetIcon("icon16/cancel.png")
+
 	SubMenu:AddOption("Open Global Permissions", function ()
 		SF.Editor.openPermissionsPopup()
-	end)
+	end):SetIcon("icon16/application_form.png")
 
-	if ent:GetReuploadOnReload() then
-		SubMenu:AddOption("Disable reupload on reload", function ()
-			ent:SetReuploadOnReload(false)
-		end)
-	else
-		SubMenu:AddOption("Enable reupload on reload", function ()
-			ent:SetReuploadOnReload(true)
-		end)
-	end
 
 	local instance = ent.instance
+	
+	if instance and instance.player == LocalPlayer() then
+		if ent:GetReuploadOnReload() then
+			SubMenu:AddOption("Disable reupload on reload", function ()
+				ent:SetReuploadOnReload(false)
+			end):SetIcon("icon16/cross.png")
+		else
+			SubMenu:AddOption("Enable reupload on reload", function ()
+				ent:SetReuploadOnReload(true)
+			end):SetIcon("icon16/tick.png")
+		end
+	end
+
 	if instance and instance.player ~= SF.Superuser and (instance.permissionRequest and instance.permissionRequest.overrides and table.Count(instance.permissionRequest.overrides) > 0
 				or instance.permissionOverrides and table.Count(instance.permissionOverrides) > 0) then
 		SubMenu:AddOption("Overriding Permissions", function ()
@@ -164,10 +177,10 @@ end
 properties.Add( "starfall", {
 	MenuLabel = "StarfallEx",
 	Order = 999,
-	MenuIcon = "icon16/wrench.png", -- We should create an icon
+	MenuIcon = "icon16/starfall_icon.png",
 	Filter = function( self, ent, ply )
-		if not IsValid(ent) then return false end
-		if not gamemode.Call( "CanProperty", ply, "starfall", ent ) then return false end
+		if not Ent_IsValid(ent) then return false end
+
 		return ent.Starfall or ent.link and ent.link.Starfall
 	end,
 	MenuOpen = MenuOpen,
@@ -200,7 +213,7 @@ net.Receive("starfall_hud_set_enabled" , function()
 	local chip = net.ReadEntity()
 	local activator = net.ReadEntity()
 	local enabled = net.ReadBool()
-	if IsValid(ply) and ply:IsPlayer() and IsValid(chip) and chip.ActiveHuds then
+	if Ent_IsValid(ply) and ply:IsPlayer() and Ent_IsValid(chip) and chip.ActiveHuds then
 		SF.EnableHud(ply, chip, activator, enabled, true)
 	end
 end)
@@ -230,7 +243,7 @@ end
 if SERVER then
 	function SF.EnableHud(ply, chip, activator, enabled, dontsync)
 		local huds = chip.ActiveHuds
-		if IsValid(activator) then
+		if Ent_IsValid(activator) then
 			local n = "SF_HUD"..ply:EntIndex()..":"..activator:EntIndex()
 			local lockController = isVehicleOrHudControlsLocked(activator)
 			local function disconnect(sync)
@@ -240,7 +253,7 @@ if SERVER then
 					chip.instance.data.viewEntityChanged = false
 					ply:SetViewEntity()
 				end
-				if IsValid(lockController) and IsValid(lockController.link) then
+				if Ent_IsValid(lockController) and Ent_IsValid(lockController.link) then
 					net.Start("starfall_lock_control")
 						net.WriteEntity(lockController.link)
 						net.WriteBool(false)
@@ -254,7 +267,7 @@ if SERVER then
 			if enabled then
 				huds[ply] = true
 				hook.Add("EntityRemoved",n,function(e) if e==ply or e==activator then disconnect(true) end end)
-				if IsValid(lockController) and IsValid(lockController.link) then
+				if Ent_IsValid(lockController) and Ent_IsValid(lockController.link) then
 					net.Start("starfall_lock_control")
 						net.WriteEntity(lockController.link)
 						net.WriteBool(true)
@@ -281,7 +294,7 @@ else
 		chip.ActiveHuds[ply] = enabled
 
 		if changed then
-			local enabledBy = IsValid(chip.owner) and (" by "..chip.owner:Nick()) or ""
+			local enabledBy = Ent_IsValid(chip.owner) and (" by "..chip.owner:Nick()) or ""
 			if enabled then
 				if (Hint_FirstPrint) then
 					LocalPlayer():ChatPrint("Starfall HUD enabled"..enabledBy..". NOTE: Type 'sf_hud_unlink' in the console to disconnect yourself from all HUDs.")
@@ -319,13 +332,13 @@ function SF.LinkEnt(self, ent, transmit)
 		local oldlink = self.link
 		self.link = ent
 
-		if IsValid(oldlink) then
+		if Ent_IsValid(oldlink) then
 			local instance = oldlink.instance
 			if instance then
 				instance:runScriptHook("componentunlinked", instance.WrapObject(self))
 			end
 		end
-		if IsValid(ent) then
+		if Ent_IsValid(ent) then
 			local instance = ent.instance
 			if instance then
 				instance:runScriptHook("componentlinked", instance.WrapObject(self))
@@ -335,7 +348,7 @@ function SF.LinkEnt(self, ent, transmit)
 	if SERVER and (changed or transmit) then
 		net.Start("starfall_processor_link")
 		net.WriteReliableEntity(self)
-		if IsValid(ent) then
+		if Ent_IsValid(ent) then
 			net.WriteReliableEntity(ent)
 		else
 			net.WriteReliableEntity(Entity(0))

@@ -22,6 +22,7 @@ registerprivilege("player.setPos", "Set Position", "Allows the user to teleport 
 registerprivilege("player.setEyeAngles", "SetEyeAngles", "Allows the user to rotate the view of a player to another orientation", { entities = {}, usergroups = { default = 1 } })
 registerprivilege("player.ignite", "Ignite", "Allows the user to ignite players", { entities = {}, usergroups = { default = 1 } })
 registerprivilege("player.addVelocity", "AddVelocity", "Allows the user to add velocity to a player", { entities = { default = 3 }, usergroups = { default = 1 } })
+registerprivilege("player.giveweapon", "GiveWeapon", "Gives a player a weapon", { usergroups = { default = 1 }, entities = {} })
 
 local PVSLimitCvar = CreateConVar("sf_pvs_pointlimit", 16, FCVAR_ARCHIVE, "The number of PVS points that can be set on each player, limit is shared across all chips")
 
@@ -118,8 +119,7 @@ local PlayerPVSManager = PVSManager()
 return function(instance)
 local checkpermission = instance.player ~= SF.Superuser and SF.Permissions.check or function() end
 local Ent_Extinguish,Ent_Ignite,Ent_OBBMaxs,Ent_OBBMins,Ent_SetFriction,Ent_SetGravity,Ent_SetModelScale,Ent_SetPos,Ent_SetVelocity = ENT_META.Extinguish,ENT_META.Ignite,ENT_META.OBBMaxs,ENT_META.OBBMins,ENT_META.SetFriction,ENT_META.SetGravity,ENT_META.SetModelScale,ENT_META.SetPos,ENT_META.SetVelocity
-local Ply_Alive,Ply_DropNamedWeapon,Ply_DropWeapon,Ply_EnterVehicle,Ply_ExitVehicle,Ply_GetTimeoutSeconds,Ply_HasGodMode,Ply_IsConnected,Ply_IsTimingOut,Ply_Kill,Ply_LastHitGroup,Ply_PacketLoss,Ply_SetAmmo,Ply_SetArmor,Ply_SetCrouchedWalkSpeed,Ply_SetDuckSpeed,Ply_SetEyeAngles,Ply_SetJumpPower,Ply_SetLadderClimbSpeed,Ply_SetMaxArmor,Ply_SetMaxSpeed,Ply_SetRunSpeed,Ply_SetSlowWalkSpeed,Ply_SetStepSize,Ply_SetUnDuckSpeed,Ply_SetViewEntity,Ply_SetWalkSpeed,Ply_SetWeaponColor,Ply_StripAmmo,Ply_StripWeapon,Ply_StripWeapons,Ply_TimeConnected,Ply_Say = PLY_META.Alive,PLY_META.DropNamedWeapon,PLY_META.DropWeapon,PLY_META.EnterVehicle,PLY_META.ExitVehicle,PLY_META.GetTimeoutSeconds,PLY_META.HasGodMode,PLY_META.IsConnected,PLY_META.IsTimingOut,PLY_META.Kill,PLY_META.LastHitGroup,PLY_META.PacketLoss,PLY_META.SetAmmo,PLY_META.SetArmor,PLY_META.SetCrouchedWalkSpeed,PLY_META.SetDuckSpeed,PLY_META.SetEyeAngles,PLY_META.SetJumpPower,PLY_META.SetLadderClimbSpeed,PLY_META.SetMaxArmor,PLY_META.SetMaxSpeed,PLY_META.SetRunSpeed,PLY_META.SetSlowWalkSpeed,PLY_META.SetStepSize,PLY_META.SetUnDuckSpeed,PLY_META.SetViewEntity,PLY_META.SetWalkSpeed,PLY_META.SetWeaponColor,PLY_META.StripAmmo,PLY_META.StripWeapon,PLY_META.StripWeapons,PLY_META.TimeConnected,PLY_META.Say
-
+local Ply_Alive,Ply_DropNamedWeapon,Ply_DropWeapon,Ply_EnterVehicle,Ply_ExitVehicle,Ply_GetTimeoutSeconds,Ply_Give,Ply_HasGodMode,Ply_IsConnected,Ply_IsTimingOut,Ply_Kill,Ply_LastHitGroup,Ply_PacketLoss,Ply_SetAmmo,Ply_SetArmor,Ply_SetCrouchedWalkSpeed,Ply_SetDuckSpeed,Ply_SetEyeAngles,Ply_SetJumpPower,Ply_SetLadderClimbSpeed,Ply_SetMaxArmor,Ply_SetMaxSpeed,Ply_SetRunSpeed,Ply_SetSlowWalkSpeed,Ply_SetStepSize,Ply_SetUnDuckSpeed,Ply_SetViewEntity,Ply_SetWalkSpeed,Ply_SetWeaponColor,Ply_StripAmmo,Ply_StripWeapon,Ply_StripWeapons,Ply_TimeConnected,Ply_Say = PLY_META.Alive,PLY_META.DropNamedWeapon,PLY_META.DropWeapon,PLY_META.EnterVehicle,PLY_META.ExitVehicle,PLY_META.GetTimeoutSeconds,PLY_META.Give,PLY_META.HasGodMode,PLY_META.IsConnected,PLY_META.IsTimingOut,PLY_META.Kill,PLY_META.LastHitGroup,PLY_META.PacketLoss,PLY_META.SetAmmo,PLY_META.SetArmor,PLY_META.SetCrouchedWalkSpeed,PLY_META.SetDuckSpeed,PLY_META.SetEyeAngles,PLY_META.SetJumpPower,PLY_META.SetLadderClimbSpeed,PLY_META.SetMaxArmor,PLY_META.SetMaxSpeed,PLY_META.SetRunSpeed,PLY_META.SetSlowWalkSpeed,PLY_META.SetStepSize,PLY_META.SetUnDuckSpeed,PLY_META.SetViewEntity,PLY_META.SetWalkSpeed,PLY_META.SetWeaponColor,PLY_META.StripAmmo,PLY_META.StripWeapon,PLY_META.StripWeapons,PLY_META.TimeConnected,PLY_META.Say
 local player_methods, player_meta, wrap, unwrap = instance.Types.Player.Methods, instance.Types.Player, instance.Types.Player.Wrap, instance.Types.Player.Unwrap
 local owrap, ounwrap = instance.WrapObject, instance.UnwrapObject
 local ent_meta, ewrap, eunwrap = instance.Types.Entity, instance.Types.Entity.Wrap, instance.Types.Entity.Unwrap
@@ -128,12 +128,9 @@ local ang_meta, awrap, aunwrap = instance.Types.Angle, instance.Types.Angle.Wrap
 local wep_meta, wwrap, wunwrap = instance.Types.Weapon, instance.Types.Weapon.Wrap, instance.Types.Weapon.Unwrap
 local veh_meta, vhwrap, vhunwrap = instance.Types.Vehicle, instance.Types.Vehicle.Wrap, instance.Types.Vehicle.Unwrap
 
-local getent, getply
 local vunwrap1, vunwrap2
 local aunwrap1
 instance:AddHook("initialize", function()
-	getent = ent_meta.GetEntity
-	getply = player_meta.GetPlayer
 	player_meta.__tostring = ent_meta.__tostring
 	vunwrap1, vunwrap2 = vec_meta.QuickUnwrap1, vec_meta.QuickUnwrap2
 	aunwrap1 = ang_meta.QuickUnwrap1
@@ -166,7 +163,7 @@ end)
 -- @param number scale The scale to apply, will be truncated to the first two decimal places (min 0.01, max 100)
 function player_methods:setModelScale(scale)
 	checkvalidnumber(scale)
-	local ply = getply(self)
+	local ply = unwrap(self)
 	checkpermission(instance, ply, "entities.setRenderProperty")
 	Ent_SetModelScale(ply, math.Clamp(math.Truncate(scale, 2), 0.01, playerMaxScale:GetFloat()))
 end
@@ -174,14 +171,14 @@ end
 --- Checks if the player is connected to a HUD component that's linked to this chip
 -- @return boolean If a HUD component is connected and active for the player
 function player_methods:isHUDActive()
-	return SF.IsHUDActive(instance.entity, getply(self))
+	return SF.IsHUDActive(instance.entity, unwrap(self))
 end
 
 --- Sets the view entity of the player. Only works if they are linked to a hud.
 -- @param Entity? ent Entity to set the player's view entity to, or nothing to reset it
 function player_methods:setViewEntity(ent)
-	local ply = getply(self)
-	if ent~=nil then ent = getent(ent) end
+	local ply = unwrap(self)
+	if ent~=nil then ent = eunwrap(ent) end
 	if not SF.IsHUDActive(instance.entity, ply) then SF.Throw("Player isn't connected to HUD!", 2) end
 	instance.data.viewEntityChanged = ent ~= nil and ent ~= ply
 	Ply_SetViewEntity(ply, ent)
@@ -190,7 +187,25 @@ end
 --- Returns whether or not the player has godmode
 -- @return boolean True if the player has godmode
 function player_methods:hasGodMode()
-	return Ply_HasGodMode(getply(self))
+	return Ply_HasGodMode(unwrap(self))
+end
+
+--- Gives the player a weapon
+-- @param string weapon The class name of the weapon to give
+-- @param boolean? noAmmo Prevent giving ammo on weapon spawn?, Defaults to false.
+-- @return Weapon The weapon
+function player_methods:giveWeapon(weapon, noAmmo)
+	checkluatype(weapon, TYPE_STRING)
+	if noAmmo ~= nil then checkluatype(noAmmo, TYPE_BOOL) end
+
+	local ply = unwrap(self)
+    checkpermission(instance, ply, "player.giveweapon")
+
+    local wpnEntry = list.GetForEdit("Weapon", true)[weapon]
+    if not wpnEntry then SF.Throw(weapon .. " is not a Valid SWEP!") end
+    if not wpnEntry.Spawnable then SF.Throw(weapon .. " is not a Spawnable SWEP!") end
+
+    return wwrap(Ply_Give(ply, weapon, noAmmo))
 end
 
 --- Drops the player's weapon
@@ -198,7 +213,7 @@ end
 -- @param Vector? target If set, launches the weapon at the given position
 -- @param Vector? velocity If set and target is unset, launches the weapon with the given velocity
 function player_methods:dropWeapon(weapon, target, velocity)
-	local ply = getply(self)
+	local ply = unwrap(self)
 	checkpermission(instance, ply, "player.dropweapon")
 
 	if target~=nil then target = vunwrap1(target) end
@@ -215,7 +230,7 @@ end
 --- Strips the player's weapon
 -- @param string weapon The weapon class name of the weapon to strip
 function player_methods:stripWeapon(weapon)
-	local ply = getply(self)
+	local ply = unwrap(self)
 	checkpermission(instance, ply, "player.dropweapon")
 	checkluatype(weapon, TYPE_STRING)
 	Ply_StripWeapon(ply, weapon)
@@ -223,7 +238,7 @@ end
 
 --- Strips all the player's weapons
 function player_methods:stripWeapons()
-	local ply = getply(self)
+	local ply = unwrap(self)
 	checkpermission(instance, ply, "player.dropweapon")
 	Ply_StripWeapons(ply)
 end
@@ -232,7 +247,7 @@ end
 -- @param number amount The ammo value
 -- @param number|string ammoType Ammo type id or name
 function player_methods:setAmmo(amount, ammoType)
-	local ply = getply(self)
+	local ply = unwrap(self)
 	checkpermission(instance, ply, "player.setammo")
 
 	checkvalidnumber(amount)
@@ -245,7 +260,7 @@ end
 
 --- Removes all a player's ammo
 function player_methods:stripAmmo()
-	local ply = getply(self)
+	local ply = unwrap(self)
 	checkpermission(instance, ply, "player.setammo")
 	Ply_StripAmmo(ply)
 end
@@ -253,13 +268,13 @@ end
 --- Returns the hitgroup where the player was last hit.
 -- @return number Hitgroup, see https://wiki.facepunch.com/gmod/Enums/HITGROUP
 function player_methods:lastHitGroup()
-	return Ply_LastHitGroup(getply(self))
+	return Ply_LastHitGroup(unwrap(self))
 end
 
 --- Sets a player's eye angles
 -- @param Angle ang New angles
 function player_methods:setEyeAngles(ang)
-	local ply = getply(self)
+	local ply = unwrap(self)
 	checkpermission(instance, ply, "player.setEyeAngles")
 	Ply_SetEyeAngles(ply, aunwrap1(ang))
 end
@@ -267,31 +282,31 @@ end
 --- Returns the packet loss of the client
 -- @return number Packets lost
 function player_methods:getPacketLoss()
-	return Ply_PacketLoss(getply(self))
+	return Ply_PacketLoss(unwrap(self))
 end
 
 --- Returns the time in seconds since the player connected
 -- @return number Time connected
 function player_methods:getTimeConnected()
-	return Ply_TimeConnected(getply(self))
+	return Ply_TimeConnected(unwrap(self))
 end
 
 --- Returns the number of seconds that the player has been timing out for
 -- @return number Timeout seconds
 function player_methods:getTimeoutSeconds()
-	return Ply_GetTimeoutSeconds(getply(self))
+	return Ply_GetTimeoutSeconds(unwrap(self))
 end
 
 --- Returns true if the player is timing out
 -- @return boolean isTimingOut
 function player_methods:isTimingOut()
-	return Ply_IsTimingOut(getply(self))
+	return Ply_IsTimingOut(unwrap(self))
 end
 
 --- Returns whether the player is connected
 -- @return boolean True if player is connected
 function player_methods:isConnected()
-	return Ply_IsConnected(getply(self))
+	return Ply_IsConnected(unwrap(self))
 end
 
 --- Forces the player to say the first argument
@@ -301,7 +316,7 @@ end
 function player_methods:say(text, teamOnly)
 	checkluatype(text, TYPE_STRING)
 	if teamOnly~=nil then checkluatype(teamOnly, TYPE_BOOL) end
-	local ply = getply(self)
+	local ply = unwrap(self)
 	if instance.player ~= ply then SF.Throw("Player say can only be used on yourself!", 2) end
 	if CurTime() < (ply.sf_say_cd or 0) then SF.Throw("Player say must wait 0.5s between calls!", 2) end
 	ply.sf_say_cd = CurTime() + 0.5
@@ -312,7 +327,7 @@ end
 --- Sets the armor of the player.
 -- @param number newarmor New armor value.
 function player_methods:setArmor(val)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.setArmor")
 	checkvalidnumber(val)
 	Ply_SetArmor(ent, val)
@@ -321,7 +336,7 @@ end
 --- Sets the maximum armor for player. You can still set a player's armor above this amount with Player:setArmor.
 -- @param number newmaxarmor New max armor value.
 function player_methods:setMaxArmor(val)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.setMaxArmor")
 	checkvalidnumber(val)
 	Ply_SetMaxArmor(ent, val)
@@ -331,7 +346,7 @@ end
 -- @server
 -- @param number newhealth New health value.
 function player_methods:setHealth(val)
-	local ply = getply(self)
+	local ply = unwrap(self)
 	checkpermission(instance, ply, "player.setHealth")
 	checkluatype(val, TYPE_NUMBER)
 
@@ -342,7 +357,7 @@ end
 -- @server
 -- @param number newmaxhealth New max health value.
 function player_methods:setMaxHealth(val)
-	local ply = getply(self)
+	local ply = unwrap(self)
 	checkpermission(instance, ply, "player.setMaxHealth")
 	checkluatype(val, TYPE_NUMBER)
 
@@ -352,7 +367,7 @@ end
 --- Sets Crouched Walk Speed
 -- @param number newcwalkspeed New Crouch Walk speed, This is a multiplier from 0 to 1.
 function player_methods:setCrouchedWalkSpeed(val)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.modifyMovementProperties")
 	checkvalidnumber(val)
 	Ply_SetCrouchedWalkSpeed(ent, math.Clamp(val,0,1))
@@ -361,7 +376,7 @@ end
 --- Sets Duck Speed
 -- @param number newduckspeed New Duck speed, This is a multiplier from 0 to 1.
 function player_methods:setDuckSpeed(val)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.modifyMovementProperties")
 	checkvalidnumber(val)
 	Ply_SetDuckSpeed(ent, math.Clamp(val,0.005,0.995))
@@ -370,7 +385,7 @@ end
 --- Sets UnDuck Speed
 -- @param number newunduckspeed New UnDuck speed, This is a multiplier from 0 to 1.
 function player_methods:setUnDuckSpeed(val)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.modifyMovementProperties")
 	checkvalidnumber(val)
 	Ply_SetUnDuckSpeed(ent, math.Clamp(val,0.005,0.995))
@@ -379,7 +394,7 @@ end
 --- Sets Ladder Climb Speed, probably unstable
 -- @param number newladderclimbspeed New Ladder Climb speed.
 function player_methods:setLadderClimbSpeed(val)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.modifyMovementProperties")
 	checkvalidnumber(val)
 	Ply_SetLadderClimbSpeed(ent, math.max(val,0))
@@ -388,7 +403,7 @@ end
 --- Sets Max Speed
 -- @param number newmaxspeed New Max speed.
 function player_methods:setMaxSpeed(val)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.modifyMovementProperties")
 	checkvalidnumber(val)
 	Ply_SetMaxSpeed(ent, math.max(val,0))
@@ -397,7 +412,7 @@ end
 --- Sets Run Speed ( +speed )
 -- @param number newrunspeed New Run speed.
 function player_methods:setRunSpeed(val)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.modifyMovementProperties")
 	checkvalidnumber(val)
 	Ply_SetRunSpeed(ent, math.max(val,0))
@@ -406,7 +421,7 @@ end
 --- Sets Slow Walk Speed ( +walk )
 -- @param number newslowwalkspeed New Slow Walk speed.
 function player_methods:setSlowWalkSpeed(val)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.modifyMovementProperties")
 	checkvalidnumber(val)
 	Ply_SetSlowWalkSpeed(ent, math.max(val,0))
@@ -415,7 +430,7 @@ end
 --- Sets Walk Speed
 -- @param number newwalkspeed New Walk speed.
 function player_methods:setWalkSpeed(val)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.modifyMovementProperties")
 	checkvalidnumber(val)
 	Ply_SetWalkSpeed(ent, math.max(val,0))
@@ -424,7 +439,7 @@ end
 --- Sets Jump Power
 -- @param number newjumppower New Jump Power.
 function player_methods:setJumpPower(val)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.modifyMovementProperties")
 	checkvalidnumber(val)
 	Ply_SetJumpPower(ent, math.max(val,0))
@@ -433,7 +448,7 @@ end
 --- Sets Step Size
 -- @param number newstepsize New Step Size.
 function player_methods:setStepSize(val)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.modifyMovementProperties")
 	checkvalidnumber(val)
 	Ply_SetStepSize(ent, math.max(val,0))
@@ -442,7 +457,7 @@ end
 --- Sets Friction
 -- @param number newfriction New Friction.
 function player_methods:setFriction(val)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.modifyMovementProperties")
 	checkvalidnumber(val)
 	Ent_SetFriction(ent, math.Clamp(val/cvars.Number("sv_friction"),0,10))
@@ -451,7 +466,7 @@ end
 --- Sets the player's weapon color
 -- @param Vector col The new color with values 0-1 in each vector component
 function player_methods:setWeaponColor(col)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "entities.setPlayerRenderProperty")
 	checkvector(col)
 	Ply_SetWeaponColor(ent, vunwrap1(col))
@@ -460,7 +475,7 @@ end
 --- Kills the target.
 --- Requires 'entities.setHealth' permission.
 function player_methods:kill()
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "entities.setHealth")
 	if Ply_Alive(ent) then
 		Ply_Kill(ent)
@@ -471,7 +486,7 @@ end
 --- Requires 'player.enterVehicle' permission on the player.
 -- @param Vehicle vehicle
 function player_methods:enterVehicle(vehicle)
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.enterVehicle")
 	Ply_EnterVehicle(ent, vhunwrap(vehicle))
 end
@@ -483,21 +498,21 @@ end
 function player_methods:setPVSPoint( ID, position )
 	checkluatype(ID, TYPE_NUMBER)
 	ID = math.floor(math.Clamp(ID,1,PVSLimitCvar:GetInt()))
-	if not (SF.IsHUDActive(instance.entity, getply(self) ) or getply(self) == instance.player) then 
+	if not (SF.IsHUDActive(instance.entity, unwrap(self) ) or unwrap(self) == instance.player) then 
 		SF.Throw("setPVS can only be used on owner or HUD connected players!") 
 	end
 	if position ~= nil then position = vunwrap( position ) checkvector(position) end
-	PlayerPVSManager:setPointToCountTable(instance, getply(self), ID, position)
+	PlayerPVSManager:setPointToCountTable(instance, unwrap(self), ID, position)
 end
 
 --- Clears a given player's PVS override points set by this chip
 function player_methods:clearPVSPoints()
-	PlayerPVSManager:clearInstPlyTable( instance, getply(self) )
+	PlayerPVSManager:clearInstPlyTable( instance, unwrap(self) )
 end
 
 --- Forces the player out of a vehicle.
 function player_methods:exitVehicle()
-	local ent = getply(self)
+	local ent = unwrap(self)
 	checkpermission(instance, ent, "player.exitVehicle")
 	Ply_ExitVehicle(ent)
 end
@@ -506,7 +521,7 @@ end
 -- @param Vector vec New position
 -- @param boolean? revive Revive the player if they are dead
 function player_methods:setPos(vec, revive)
-	local ply = getply(self)
+	local ply = unwrap(self)
 	checkpermission(instance, ply, "player.setPos")
 
 	if revive and not ply:Alive() then
@@ -519,7 +534,7 @@ end
 --- Add the player's linear velocity.
 -- @param Vector vel Add velocity
 function player_methods:addVelocity(vel)
-	local ply = getply(self)
+	local ply = unwrap(self)
 	vel = vunwrap1(vel)
 	checkvector(vel)
 
@@ -530,7 +545,7 @@ end
 --- Sets the gravity multiplier of the player.
 -- @param number multiplier By how much to multiply the gravity. 1 is normal gravity, 0.5 is half-gravity, etc.
 function player_methods:setGravity(multiplier)
-	local ply = getply(self)
+	local ply = unwrap(self)
 	checkpermission(instance, ply, "player.modifyMovementProperties")
 	checkluatype(multiplier, TYPE_NUMBER)
 
@@ -545,7 +560,7 @@ end
 -- @param number length How long the fire lasts
 -- @param number? radius (optional) How large the fire hitbox is (entity obb is the max)
 function player_methods:ignite(length, radius)
-	local ply = getply(self)
+	local ply = unwrap(self)
 	checkluatype(length, TYPE_NUMBER)
 
 	checkpermission(instance, ply, "player.ignite")
@@ -561,7 +576,7 @@ end
 
 --- Extinguishes a player
 function player_methods:extinguish()
-	local ply = getply(self)
+	local ply = unwrap(self)
 	checkpermission(instance, ply, "player.ignite")
 
 	Ent_Extinguish(ply)
