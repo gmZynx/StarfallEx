@@ -91,6 +91,8 @@ function SF.Instance.Compile(code, mainfile, player, entity)
 		player = SF.Superuser
 	end
 	instance.player = player
+	instance.playerid = player:SteamID()
+	instance.playerid64 = player:SteamID64()
 
 	if player == SF.Superuser then
 		instance:setCheckCpu(SF.softLockProtectionSuperUser:GetBool() and SF.softLockProtection:GetBool())
@@ -810,14 +812,15 @@ hook.Add("EntityRemoved", "SF_EntityRemoved", function(ent, snapshot)
 	if SF.WrappedEntities[ent] then
 		if SERVER then
 			for instance in pairs(SF.allInstances) do instance:CleanupWrappedEnt(ent) end
+			SF.WrappedEntities[ent] = nil
 		else
 			timer.Simple(0, function()
 				if not Ent_IsValid(ent) then
 					for instance in pairs(SF.allInstances) do instance:CleanupWrappedEnt(ent) end
+					SF.WrappedEntities[ent] = nil
 				end
 			end)
 		end
-		SF.WrappedEntities[ent] = nil
 	end
 end)
 

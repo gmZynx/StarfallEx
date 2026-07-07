@@ -5,7 +5,7 @@ SF.Modules = {}
 SF.Types = {}
 SF.Libraries = {}
 SF.ResourceCounters = {}
-SF.Superuser = {IsValid = function() return false end, SteamID64 = function() return "Superuser" end}
+SF.Superuser = {IsValid = function() return false end, SteamID = function() return "Superuser" end, SteamID64 = function() return "Superuser" end}
 local dgetmeta = debug.getmetatable
 local TypeID = TypeID
 local math_Clamp = math.Clamp
@@ -2333,20 +2333,6 @@ end
 
 
 do
-	-- Some more optimized path regex until gmod pulls them
-	function string.GetExtensionFromFilename( path )
-		return string.match( path, "%.([^%.]+)$" )
-	end
-	function string.StripExtension( path )
-		return string.match( path, "(.+)%." ) or path
-	end
-	function string.GetPathFromFilename( path )
-		return string.match( path, "(.*[/\\])" ) or ""
-	end
-	function string.GetFileFromFilename( path )
-		return string.match( path, "[\\/]([^/\\]+)$" ) or path
-	end
-
 	local function checkregex(data, pattern)
 		local limits = {[0] = 50000000, 15000, 500, 150, 70, 40} -- Worst case is about 200ms
 		local stripped, nrepl, nrepl2

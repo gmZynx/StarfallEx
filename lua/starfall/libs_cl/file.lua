@@ -12,6 +12,8 @@ registerprivilege("file.find", "File find", "Allows the user to see what files a
 registerprivilege("file.findInGame", "File find in garrysmod", "Allows the user to see what files are in garrysmod", { client = { default = 1 } })
 registerprivilege("file.open", "Get a file object", "Allows the user to use a file object", { client = { default = 1 } })
 registerprivilege("file.time", "Get time modified", "Allows the user to see the last time a file was modified", { client = { default = 1 } })
+registerprivilege("file.rename", "Rename files", "Allows the user to rename files in data/sf_filedata directory", { client = { default = 1 } })
+registerprivilege("file.size", "Get file size", "Allows the user to get the size of a file in data/sf_filedata directory", { client = { default = 1 } })
 
 file.CreateDir("sf_filedata/")
 file.CreateDir("sf_filedatatemp/")
@@ -67,8 +69,8 @@ do
 		self.entries = entries
 	end
 
-	function TempFileCache:Write(ply, filename, data)
-		local plyid = ply:SteamID64()
+	function TempFileCache:Write(instance, filename, data)
+		local plyid = instance.playerid64
 		local dir = "sf_filedatatemp/"..plyid
 		local path = dir.."/"..filename
 		local ok, reason = self:CheckSize(plyid, path, #data)
@@ -79,7 +81,7 @@ do
 			end
 			self.entries[path] = {path = path, plyid = plyid, time = os.time(), size = #data}
 			file.CreateDir(dir)
-			print("[SF owner=\""..tostring(ply).."\"] Writing temp file: " .. path)
+			print("[SF owner=\""..tostring(instance.player).."\"] Writing temp file: " .. path)
 			local f = file.Open(path, "wb", "DATA")
 			if not f then SF.Throw("Couldn't open file for writing!", 3) end
 			f:Write(data)
@@ -289,7 +291,7 @@ function file_library.writeTemp(filename, data)
 	checkExtension(filename)
 	filename = string.lower(string.GetFileFromFilename(filename))
 
-	local path = TempFileCache:Write(instance.player, filename, data)
+	local path = TempFileCache:Write(instance, filename, data)
 	tempfilewrites = tempfilewrites + 1
 	return path
 end
@@ -351,15 +353,21 @@ function file_library.isDir(path)
 	return file.IsDir("sf_filedata/" .. SF.NormalizePath(path), "DATA")
 end
 
---- Deletes a file
+--- Deletes a file or directory
 -- @param string path Filepath relative to data/sf_filedata/.
+-- @param boolean? recursive If true, deletes directories recursively
 -- @return boolean? True if successful, nil if it wasn't found
-function file_library.delete(path)
+function file_library.delete(path, recursive)
 	checkpermission (instance, path, "file.write")
 	checkluatype (path, TYPE_STRING)
+	if recursive ~= nil then checkluatype(recursive, TYPE_BOOL) end
 	path = "sf_filedata/" .. SF.NormalizePath(path)
 	if file.Exists(path, "DATA") then
-		file.Delete(path)
+		if file.IsDir(path, "DATA") and recursive then
+			SF.DeleteFolder(path)
+		else
+			file.Delete(path)
+		end
 		return true
 	end
 end
@@ -379,6 +387,23 @@ function file_library.deleteTemp(filename)
 	if file.Exists(path, "DATA") then
 		file.Delete(path)
 		return true
+	end
+end
+
+--- Renames a file
+-- @param string path Filepath relative to data/sf_filedata/.
+-- @param string newPath New filepath relative to data/sf_filedata/.
+-- @return boolean? True if successful, nil if source not found
+function file_library.rename(path, newPath)
+	checkpermission (instance, path, "file.rename")
+	checkluatype (path, TYPE_STRING)
+	checkluatype (newPath, TYPE_STRING)
+	path = "sf_filedata/" .. SF.NormalizePath(path)
+	newPath = "sf_filedata/" .. SF.NormalizePath(newPath)
+	if file.Exists(path, "DATA") then
+		if file.Exists(newPath, "DATA") then SF.Throw("Target file already exists!", 2) end
+		file.CreateDir(string.GetPathFromFilename(newPath))
+		return file.Rename(path, newPath)
 	end
 end
 
@@ -422,6 +447,15 @@ function file_library.time(path)
 	checkpermission (instance, path, "file.time")
 	checkluatype (path, TYPE_STRING)
 	return file.Time("sf_filedata/" .. SF.NormalizePath(path), "DATA")
+end
+
+--- Returns the size of the file in bytes
+-- @param string path Filepath relative to data/sf_filedata/.
+-- @return number Size in bytes
+function file_library.size(path)
+	checkpermission (instance, path, "file.size")
+	checkluatype (path, TYPE_STRING)
+	return file.Size("sf_filedata/" .. SF.NormalizePath(path), "DATA")
 end
 
 --- Wait until all changes to the file are complete
