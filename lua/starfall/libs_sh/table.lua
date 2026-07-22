@@ -65,7 +65,7 @@ table_library.count = table.Count
 -- @param table tbl The table to empty
 table_library.empty = table.Empty
 
---- Inserts a value in to the given table even if the table is non-existent
+--- Inserts a value into the given table even if the table is non-existent
 -- @class function
 -- @param table tbl Table to insert value in to. If not supplied, will create a table
 -- @param any val Value to insert
@@ -209,11 +209,13 @@ table_library.sortDesc = table.SortDesc
 -- @param table tbl The table to iterate over
 -- @param string? displayName Optional name for the table
 -- @param boolean? niceFormatting Optional, adds new lines and tabs to the string. Defaults to false
+-- @return string The table formatted as a string
 table_library.toString = table.ToString
 
 --- Creates a deep copy and returns that copy. This function does NOT copy userdata, such as Vectors and Angles!
 -- @class function
 -- @param table tbl The table to be copied
+-- @param table? lookup_table An optional lookup table for cyclic reference detection
 -- @return table A deep copy of the original table
 function table_library.copy( tbl, lookup_table )
 	if ( tbl == nil ) then return nil end

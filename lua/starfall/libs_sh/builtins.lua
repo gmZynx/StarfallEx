@@ -60,11 +60,16 @@ function builtins_library.chip()
 	return ewrap(instance.entity)
 end
 
+--- Returns true if the chip is running as a superuser
+-- @return boolean Whether the chip owner is superuser
+function builtins_library.superuser()
+	return instance.player==SF.Superuser
+end
+
 --- Returns whoever created the chip
 -- @return Player Owner of the chip
 function builtins_library.owner()
-	if instance.player==SF.Superuser then SF.Throw("Superuser chips don't have an owner", 2) end
-	return instance.Types.Player.Wrap(instance.player)
+	return instance.Types.Player.Wrap(instance.player==SF.Superuser and game.GetWorld() or instance.player)
 end
 
 --- Same as owner() on the server. On the client, returns the local player
@@ -227,7 +232,7 @@ builtins_library.CLIENT = CLIENT
 -- @class field
 builtins_library.SERVER = SERVER
 
---- Constant that denotes wether the code is executed on the owner's client
+--- Constant that denotes whether the code is executed on the owner's client
 -- @name builtins_library.OWNER
 -- @class field
 builtins_library.OWNER = CLIENT and instance.player == LocalPlayer()
@@ -463,9 +468,8 @@ end
 -- @param table table The table to get the value from
 -- @param any key The index of the table
 -- @return any The value of the index
-function builtins_library.rawget(table, key, value)
+function builtins_library.rawget(table, key)
     checkluatype(table, TYPE_TABLE)
-
     return rawget(table, key)
 end
 
@@ -544,7 +548,7 @@ end
 
 instance.argsToChat = argsToChat
 
--- here for compatiblity with older SF library addons - See note above
+-- here for compatibility with older SF library addons - See note above
 SF.argsToChat = argsToChat
 
 if SERVER then
@@ -560,20 +564,20 @@ if SERVER then
 
 	SF.sendPrintToPlayer = sendPrintToPlayer
 
-	--- Prints a message to the player's chat.
+	--- Prints a message to the chat (only visible to owner, but visible to everyone if superuser)
 	-- @shared
 	-- @param ... printArgs Values to print. Colors before text will set the text color
 	function builtins_library.print(...)
 		local data, strlen, size = argsToChat(...)
 		if instance.player == SF.Superuser then
-			MsgC("[SF] ", unpack(data), "\n")
+			MsgC("[SF] ", unpack(data)) MsgC("\n")
 			return
 		end
 		printBurst:use(instance.player, size)
 		sendPrintToPlayer(instance.player, data, false)
 	end
 
-	--- Prints a message to the player's console.
+	--- Prints a message to the console (only visible to owner, but visible to everyone if superuser)
 	-- @shared
 	-- @param ... printArgs Values to print. Colors before text will set the text color
 	function builtins_library.printConsole(...)
@@ -582,14 +586,14 @@ if SERVER then
 		sendPrintToPlayer(instance.player, data, true)
 	end
 
-	--- Prints a message to a target player's chat as long as they're connected to a hud.
+	--- Prints a message to a target player's chat as long as they're connected to a HUD
 	-- @shared
 	-- @param Player ply The target player. If in CLIENT, then ply is the client player and this param is omitted
 	-- @param ... printArgs Values to print. Colors before text will set the text color
 	function builtins_library.printHud(ply, ...)
 		ply = eunwrap(ply)
 		if not ply:IsPlayer() then SF.Throw("Expected a target player!", 2) end
-		if not SF.IsHUDActive(instance.entity, ply) then SF.Throw("Player isn't connected to a hud!", 2) end
+		if not SF.IsHUDActive(instance.entity, ply) then SF.Throw("Player isn't connected to a HUD!", 2) end
 
 		local data, strlen, size = argsToChat(builtins_library.Color(5,125,222), "[SF] ", builtins_library.Color(255,255,255), ...)
 		if strlen > 52 then SF.Throw("The max printHud string size is 52 chars!", 2) end
@@ -602,7 +606,8 @@ if SERVER then
 		sendPrintToPlayer(ply, data, false)
 	end
 
-	--- Prints a table to player's chat
+	--- Prints a table to the chat/console (only visible to owner, but visible to everyone if superuser)
+	-- @shared
 	-- @param table tbl Table to print
 	function builtins_library.printTable(tbl)
 		checkluatype(tbl, TYPE_TABLE)
@@ -631,6 +636,7 @@ if SERVER then
 		checkluatype(cmd, TYPE_STRING)
 		if #cmd > 512 then SF.Throw("Console command is too long!", 2) end
 		if IsConCommandBlocked(cmd) then SF.Throw("Console command is blocked!", 2) end
+		if instance.player == SF.Superuser then SF.Throw("Superuser can't run concmd!", 2) end
 		checkpermission(instance, nil, "console.command")
 		concmdBurst:use(instance.player, #cmd)
 		instance.player:ConCommand(cmd)
@@ -644,9 +650,9 @@ if SERVER then
 		return concmdBurst:check(instance.player)
 	end
 
-	--- Returns how many concmds per second the user can run serverside
+	--- Returns how many concmds you can run per second on server-side
 	-- @server
-	-- @return number Number of concmds per second the user can run serverside
+	-- @return number Number of concmds per second the user can run on server-side
 	function builtins_library.concmdRate()
 		return concmdBurst.rate
 	end
@@ -692,7 +698,7 @@ else
 		end
 	end
 
-	--- Sets clipboard text. Only works on the owner of the chip.
+	--- Sets clipboard text (only works on the owner of the chip)
 	-- @client
 	-- @param string txt Text to set to the clipboard
 	function builtins_library.setClipboardText(txt)
@@ -701,7 +707,7 @@ else
 		SetClipboardText(txt)
 	end
 
-	--- Prints a message to your chat, console, or the center of your screen.
+	--- Prints a message to your chat, console, or the center of your screen (only visible to owner, but visible to everyone if superuser)
 	-- @client
 	-- @param number mtype How the message should be displayed. See http://wiki.facepunch.com/gmod/Enums/HUD
 	-- @param string text The message text.
@@ -722,8 +728,16 @@ else
 		end
 	end
 
+	function builtins_library.printConsole(...)
+		if instance.player == LocalPlayer() then
+			local data = argsToChat(...)
+			table.insert(data, "\n")
+			MsgC(unpack(data))
+		end
+	end
+
 	function builtins_library.printHud(...)
-		if not SF.IsHUDActive(instance.entity) then SF.Throw("Player isn't connected to a hud!", 2) end
+		if not SF.IsHUDActive(instance.entity) then SF.Throw("Player isn't connected to a HUD!", 2) end
 		local data, strlen, size = argsToChat(builtins_library.Color(5,125,222), "[SF] ", builtins_library.Color(255,255,255), ...)
 		if strlen > 52 then SF.Throw("The max printHud string size is 52 chars!", 2) end
 		for k, v in ipairs(data) do
@@ -732,14 +746,6 @@ else
 			end
 		end
 		chat.AddText(unpack(data))
-	end
-
-	function builtins_library.printConsole(...)
-		if instance.player == LocalPlayer() then
-			local data = argsToChat(...)
-			table.insert(data, "\n")
-			MsgC(unpack(data))
-		end
 	end
 
 	function builtins_library.printTable(tbl)
@@ -751,7 +757,7 @@ else
 
 	function builtins_library.concmd(cmd)
 		checkluatype(cmd, TYPE_STRING)
-		if instance.player ~= LocalPlayer() then SF.Throw("Can't run concmd on other players!", 2) end
+		if instance.player ~= LocalPlayer() then SF.Throw((instance.player == SF.Superuser) and "Superuser can't run concmd!" or "Can't run concmd on other players!", 2) end
 		if IsConCommandBlocked(cmd) then SF.Throw("Console command is blocked!", 2) end
 		LocalPlayer():ConCommand(cmd)
 	end
@@ -1075,9 +1081,9 @@ end
 -- @return ... If an error occurred, this will be a string containing the error message. Otherwise, this will be the return values of the function passed in.
 function builtins_library.pcall(func, ...)
 	local vret, j = get_retvals_vararg(pcall(func, ...))
-	
+
 	if vret[1] then return unpack(vret, 1, j) end
-	
+
 	local err = vret[2]
 	if dgetmeta(err)==SF.Errormeta then
 		if err.userdata~=nil then
@@ -1088,7 +1094,7 @@ function builtins_library.pcall(func, ...)
 	elseif uncatchable[err] then
 		SF.Throw(err, 2, true)
 	end
-	
+
 	return false, instance.Sanitize({err})[1]
 end
 
@@ -1106,9 +1112,9 @@ end
 -- @return ... The returns of the first function if execution succeeded, otherwise the return values of the error callback.
 function builtins_library.xpcall(func, callback, ...)
 	local vret, j = get_retvals_vararg(xpcall(func, xpcall_Callback, ...))
-	
+
 	if vret[1] then return unpack(vret, 1, j) end
-	
+
 	local errData = vret[2]
 	local err, traceback = errData[1], errData[2]
 	if dgetmeta(err)==SF.Errormeta then

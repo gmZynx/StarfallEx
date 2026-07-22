@@ -71,9 +71,9 @@ end
 local xyz = { x = 1, y = 2, z = 3 }
 
 --- Sets a value at a key in the vector
--- @param Vector Vec
--- @param number|string Key
--- @param number Value
+-- @param Vector t
+-- @param number|string k
+-- @param number v
 function vec_meta.__newindex(t, k, v)
 	if xyz[k] then
 		rawset(t, xyz[k], v)
@@ -98,8 +98,8 @@ local math_min = math.min
 
 --- Gets a value at a key in the vector
 -- Can be indexed with: 1, 2, 3, x, y, z, xx, xy, xz, xxx, xyz, zyx, etc.. 1,2,3 is most efficient.
--- @param number|string Key to get the value at
--- @return number The value at the index
+-- @param number|string k to get the value at
+-- @return number|function|Vector|nil The value at the index
 function vec_meta.__index(t, k)
 	local method = vec_methods[k]
 	if method ~= nil then
@@ -152,8 +152,8 @@ function vec_meta.__mul(a, b)
 end
 
 --- Division metamethod
--- @param number|Vector v1 Number or Vector dividend.
--- @param number|Vector v2 Number or Vector divisor.
+-- @param number|Vector a Number or Vector dividend.
+-- @param number|Vector b Number or Vector divisor.
 -- @return Vector Scaled vector.
 function vec_meta.__div(a, b)
 	if isnumber(b) then
@@ -170,16 +170,16 @@ function vec_meta.__div(a, b)
 end
 
 --- Addition metamethod
--- @param Vector v1 Initial vector.
--- @param Vector v2 Vector to add to the first.
+-- @param Vector a Initial vector.
+-- @param Vector b Vector to add to the first.
 -- @return Vector Resultant vector after addition operation.
 function vec_meta.__add(a, b)
 	return wrap({ a[1] + b[1], a[2] + b[2], a[3] + b[3] })
 end
 
 --- Subtraction metamethod
--- @param Vector v1 Initial Vector
--- @param Vector v2 Vector to subtract
+-- @param Vector a Initial Vector
+-- @param Vector b Vector to subtract
 -- @return Vector Resultant vector after subtraction operation.
 function vec_meta.__sub(a, b)
 	return wrap({ a[1]-b[1], a[2]-b[2], a[3]-b[3] })
@@ -192,8 +192,8 @@ function vec_meta.__unm(a)
 end
 
 --- Equivalence metamethod
--- @param Vector v1 Initial vector.
--- @param Vector v2 Vector to check against.
+-- @param Vector a Initial vector.
+-- @param Vector b Vector to check against.
 -- @return boolean Whether both sides are equal.
 function vec_meta.__eq(a, b)
 	return a[1]==b[1] and a[2]==b[2] and a[3]==b[3]
@@ -356,7 +356,7 @@ function vec_methods:vdiv(v)
 	self[3] = self[3] / v[3]
 end
 
---- Set's all vector fields to 0.
+--- Sets all vector fields to 0.
 -- Self-Modifies. Does not return anything
 function vec_methods:setZero()
 	self[1] = 0
@@ -364,7 +364,7 @@ function vec_methods:setZero()
 	self[3] = 0
 end
 
---- Set's the vector's x coordinate and returns the vector after modifying.
+--- Sets the vector's x coordinate and returns the vector after modifying.
 -- @param number x The x coordinate
 -- @return Vector Modified vector after setting X.
 function vec_methods:setX(x)
@@ -372,7 +372,7 @@ function vec_methods:setX(x)
 	return self
 end
 
---- Set's the vector's y coordinate and returns the vector after modifying.
+--- Sets the vector's y coordinate and returns the vector after modifying.
 -- @param number y The y coordinate
 -- @return Vector Modified vector after setting Y.
 function vec_methods:setY(y)
@@ -380,7 +380,7 @@ function vec_methods:setY(y)
 	return self
 end
 
---- Set's the vector's z coordinate and returns the vector after modifying.
+--- Sets the vector's z coordinate and returns the vector after modifying.
 -- @param number z The z coordinate
 -- @return Vector Modified vector after setting Z.
 function vec_methods:setZ(z)
@@ -427,8 +427,8 @@ function vec_methods:getRotated(b)
 end
 
 --- Returns an arbitrary orthogonal basis from the direction of the vector. Input must be a normalized vector
--- @return number Basis 1
--- @return number Basis 2
+-- @return Vector Basis 1
+-- @return Vector Basis 2
 function vec_methods:getBasis()
 	if self[3] < -0.9999999 then
 		return wrap({0.0, -1.0, 0.0}), wrap({-1.0, 0.0, 0.0})

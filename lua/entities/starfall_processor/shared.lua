@@ -40,6 +40,7 @@ function ENT:Compile(sfdata)
 	self.error = nil
 
 	local ok, instance = SF.Instance.Compile(sfdata.files, sfdata.mainfile, self.owner, self)
+	if instance.player == SF.Superuser then sfdata.owner = game.GetWorld() end
 	if not ok then self:Error(instance) return end
 
 	if newdata then
@@ -139,10 +140,12 @@ local function MenuOpen( ContextMenu, Option, Entity, Trace )
 	end
 	local SubMenu = Option:AddSubMenu()
 	SubMenu:AddOption("Restart Clientside", function ()
+		if not Ent_IsValid(ent) then return end
 		ent:Compile()
 	end):SetIcon("icon16/arrow_refresh.png")
 
 	SubMenu:AddOption("Terminate Clientside", function ()
+		if not Ent_IsValid(ent) then return end
 		ent:Error({message = "Terminated", traceback = ""})
 	end):SetIcon("icon16/cancel.png")
 
@@ -156,10 +159,12 @@ local function MenuOpen( ContextMenu, Option, Entity, Trace )
 	if instance and instance.player == LocalPlayer() then
 		if ent:GetReuploadOnReload() then
 			SubMenu:AddOption("Disable reupload on reload", function ()
+				if not Ent_IsValid(ent) then return end
 				ent:SetReuploadOnReload(false)
 			end):SetIcon("icon16/cross.png")
 		else
 			SubMenu:AddOption("Enable reupload on reload", function ()
+				if not Ent_IsValid(ent) then return end
 				ent:SetReuploadOnReload(true)
 			end):SetIcon("icon16/tick.png")
 		end
@@ -168,6 +173,7 @@ local function MenuOpen( ContextMenu, Option, Entity, Trace )
 	if instance and instance.player ~= SF.Superuser and (instance.permissionRequest and instance.permissionRequest.overrides and table.Count(instance.permissionRequest.overrides) > 0
 				or instance.permissionOverrides and table.Count(instance.permissionOverrides) > 0) then
 		SubMenu:AddOption("Overriding Permissions", function ()
+			if not Ent_IsValid(ent) then return end
 			local pnl = vgui.Create("SFChipPermissions")
 			if pnl then pnl:OpenForChip(ent) end
 		end)

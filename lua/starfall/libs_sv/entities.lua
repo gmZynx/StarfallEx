@@ -330,7 +330,7 @@ function ents_methods:setCustomPropForces(ang, lin, mode)
 end
 
 --- Sets a custom prop's shadow forces, moving the entity to the desired position and angles
--- This gets overriden by Entity.setCustomPropForces and cannot be used together
+-- This gets overridden by Entity.setCustomPropForces and cannot be used together
 -- See available parameters here: https://wiki.facepunch.com/gmod/PhysObj:ComputeShadowControl
 -- @param table|boolean data Shadow physics data, excluding 'deltatime'. 'teleportdistance' higher than 0 requires 'entities.setPos'. Pass a falsy value to disable custom physics entirely
 function ents_methods:setCustomPropShadowForce(data)
@@ -393,7 +393,7 @@ function ents_methods:setAngleVelocity(angvel)
 	Phys_AddAngleVelocity(phys, angvel)
 end
 
---- Applies a angular velocity to an object
+--- Applies an angular velocity to an object
 -- @param Vector angvel The local angvel vector to apply
 function ents_methods:addAngleVelocity(angvel)
 	local ent = eunwrap(self)
@@ -746,7 +746,7 @@ function ents_methods:setCollisionGroup(group)
 	Ent_SetCollisionGroup(ent, group)
 end
 
---- Set's the entity to collide with nothing but the world. Alias to entity:setCollisionGroup(COLLISION_GROUP_WORLD)
+--- Sets the entity to collide with nothing but the world. Alias to entity:setCollisionGroup(COLLISION_GROUP.WORLD)
 -- @param boolean nocollide Whether to collide with nothing except world or not.
 function ents_methods:setNocollideAll(nocollide)
 	local ent = eunwrap(self)
@@ -791,7 +791,7 @@ function ents_methods:setInertia(vec)
 end
 
 --- Sets the physical material of the entity
--- @param string materialName Material to use
+-- @param string mat Material to use
 function ents_methods:setPhysMaterial(mat)
 	local ent = eunwrap(self)
 	if Ent_IsPlayer(ent) then SF.Throw("Target is a player!", 2) end
@@ -871,7 +871,7 @@ function ents_methods:setContents(contents)
 	if not Phys_IsValid(phys) then SF.Throw("Physics object is invalid", 2) end
 
 	checkluatype(contents, TYPE_NUMBER)
-	
+
 	checkpermission(instance, ent, "entities.setContents")
 	Phys_SetContents(phys, contents)
 end
@@ -946,7 +946,7 @@ function ents_methods:enableSphere(enabled, radius)
 			end
 			Ent_PhysicsInitSphere(ent, radius, phys:GetMaterial())
 			Ent_SetCollisionBounds(ent, Vector(-radius, -radius, -radius) , Vector(radius, radius, radius))
-	
+
 			-- https://github.com/daveth/makespherical/blob/80b702ba04ba4b64d6c378df8d405b2c113dec53/lua/weapons/gmod_tool/stools/makespherical.lua#L117
 			local info = {
 				obbcenter = ent.obbcenter,
@@ -956,7 +956,7 @@ function ents_methods:enableSphere(enabled, radius)
 				enabled = enabled,
 				isrenderoffset = 0
 			}
-			
+
 			duplicator.StoreEntityModifier(ent, "MakeSphericalCollisions", info)
 		end
 	else
@@ -993,6 +993,7 @@ end
 
 --- Gets a table of all constrained entities to each other
 -- @param table? filter Optional constraint type filter table where keys are the type name and values are 'true'. "Wire" and "Parent" are used for wires and parents.
+-- @return table All constrained entities
 function ents_methods:getAllConstrained(filter)
 	if filter ~= nil then checkluatype(filter, TYPE_TABLE) end
 
@@ -1165,8 +1166,8 @@ end
 --- You can only use this function on these classes:
 --- - starfall_prop
 --- - starfall_processor
--- @param function|nil func The StartTouch callback function. Arguments: (Entity object), the object entering our entity's bounds.
--- @param function|nil func The EndTouch callback function. Arguments: (Entity object), the object leaving our entity's bounds.
+-- @param function|nil startTouchCB The StartTouch callback function. Arguments: (Entity object), the object entering our entity's bounds.
+-- @param function|nil endTouchCB The EndTouch callback function. Arguments: (Entity object), the object leaving our entity's bounds.
 function ents_methods:setTriggerListener(startTouchCB, endTouchCB)
 	local ent = eunwrap(self)
 	checkpermission(instance, ent, "entities.canTool")
@@ -1253,7 +1254,7 @@ function ents_methods:setPreventTransmit(target, prevent)
 			newtarget[i] = instance.Types.Player.Unwrap(pl)
 		end
 	end
-	
+
 	checkluatype(prevent, TYPE_BOOL)
 
 	Ent_SetPreventTransmit(ent, newtarget, prevent)

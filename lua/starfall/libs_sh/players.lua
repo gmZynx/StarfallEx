@@ -80,7 +80,7 @@ return function(instance)
 local checkpermission = instance.player ~= SF.Superuser and SF.Permissions.check or function() end
 
 local Ent_GetFriction,Ent_GetMoveType,Ent_GetSequenceActivity,Ent_IsValid,Ent_LookupSequence,Ent_SequenceDuration,Ent_SetCycle = ENT_META.GetFriction,ENT_META.GetMoveType,ENT_META.GetSequenceActivity,ENT_META.IsValid,ENT_META.LookupSequence,ENT_META.SequenceDuration,ENT_META.SetCycle
-local Ply_Alive,Ply_AnimResetGestureSlot,Ply_AnimRestartGesture,Ply_AnimSetGestureWeight,Ply_Armor,Ply_Crouching,Ply_Deaths,Ply_FlashlightIsOn,Ply_Frags,Ply_GetActiveWeapon,Ply_GetAimVector,Ply_GetAmmoCount,Ply_GetCrouchedWalkSpeed,Ply_GetDuckSpeed,Ply_GetEntityInUse,Ply_GetEyeTrace,Ply_GetFOV,Ply_GetFriendStatus,Ply_GetJumpPower,Ply_GetLadderClimbSpeed,Ply_GetMaxArmor,Ply_GetMaxSpeed,Ply_GetName,Ply_GetPlayerColor,Ply_GetRagdollEntity,Ply_GetRunSpeed,Ply_GetShootPos,Ply_GetSlowWalkSpeed,Ply_GetStepSize,Ply_GetUnDuckSpeed,Ply_GetUserGroup,Ply_GetVehicle,Ply_GetViewEntity,Ply_GetViewModel,Ply_GetViewPunchAngles,Ply_GetWalkSpeed,Ply_GetWeapon,Ply_GetWeaponColor,Ply_GetWeapons,Ply_InVehicle,Ply_IsAdmin,Ply_IsBot,Ply_IsFrozen,Ply_IsMuted,Ply_IsPlayingTaunt,Ply_IsSpeaking,Ply_IsSprinting,Ply_IsSuperAdmin,Ply_IsTyping,Ply_IsUserGroup,Ply_IsWalking,Ply_KeyDown,Ply_KeyDownLast,Ply_KeyPressed,Ply_KeyReleased,Ply_OwnerSteamID64,Ply_Ping,Ply_ShouldDrawLocalPlayer,Ply_SteamID,Ply_SteamID64,Ply_Team,Ply_UserID,Ply_VoiceVolume = PLY_META.Alive,PLY_META.AnimResetGestureSlot,PLY_META.AnimRestartGesture,PLY_META.AnimSetGestureWeight,PLY_META.Armor,PLY_META.Crouching,PLY_META.Deaths,PLY_META.FlashlightIsOn,PLY_META.Frags,PLY_META.GetActiveWeapon,PLY_META.GetAimVector,PLY_META.GetAmmoCount,PLY_META.GetCrouchedWalkSpeed,PLY_META.GetDuckSpeed,PLY_META.GetEntityInUse,PLY_META.GetEyeTrace,PLY_META.GetFOV,PLY_META.GetFriendStatus,PLY_META.GetJumpPower,PLY_META.GetLadderClimbSpeed,PLY_META.GetMaxArmor,PLY_META.GetMaxSpeed,PLY_META.GetName,PLY_META.GetPlayerColor,PLY_META.GetRagdollEntity,PLY_META.GetRunSpeed,PLY_META.GetShootPos,PLY_META.GetSlowWalkSpeed,PLY_META.GetStepSize,PLY_META.GetUnDuckSpeed,PLY_META.GetUserGroup,PLY_META.GetVehicle,PLY_META.GetViewEntity,PLY_META.GetViewModel,PLY_META.GetViewPunchAngles,PLY_META.GetWalkSpeed,PLY_META.GetWeapon,PLY_META.GetWeaponColor,PLY_META.GetWeapons,PLY_META.InVehicle,PLY_META.IsAdmin,PLY_META.IsBot,PLY_META.IsFrozen,PLY_META.IsMuted,PLY_META.IsPlayingTaunt,PLY_META.IsSpeaking,PLY_META.IsSprinting,PLY_META.IsSuperAdmin,PLY_META.IsTyping,PLY_META.IsUserGroup,PLY_META.IsWalking,PLY_META.KeyDown,PLY_META.KeyDownLast,PLY_META.KeyPressed,PLY_META.KeyReleased,PLY_META.OwnerSteamID64,PLY_META.Ping,PLY_META.ShouldDrawLocalPlayer,PLY_META.SteamID,PLY_META.SteamID64,PLY_META.Team,PLY_META.UserID,PLY_META.VoiceVolume
+local Ply_Alive,Ply_AnimResetGestureSlot,Ply_AnimRestartGesture,Ply_AnimSetGestureWeight,Ply_Armor,Ply_Crouching,Ply_Deaths,Ply_FlashlightIsOn,Ply_Frags,Ply_GetActiveWeapon,Ply_GetAimVector,Ply_GetAmmoCount,Ply_GetCrouchedWalkSpeed,Ply_GetDuckSpeed,Ply_GetEntityInUse,Ply_GetEyeTrace,Ply_GetFOV,Ply_GetFriendStatus,Ply_GetHull,Ply_GetHullDuck,Ply_GetJumpPower,Ply_GetLadderClimbSpeed,Ply_GetMaxArmor,Ply_GetMaxSpeed,Ply_GetName,Ply_GetPlayerColor,Ply_GetRagdollEntity,Ply_GetRunSpeed,Ply_GetShootPos,Ply_GetSlowWalkSpeed,Ply_GetStepSize,Ply_GetUnDuckSpeed,Ply_GetUserGroup,Ply_GetVehicle,Ply_GetViewEntity,Ply_GetViewModel,Ply_GetViewPunchAngles,Ply_GetWalkSpeed,Ply_GetWeapon,Ply_GetWeaponColor,Ply_GetWeapons,Ply_InVehicle,Ply_IsAdmin,Ply_IsBot,Ply_IsFrozen,Ply_IsMuted,Ply_IsPlayingTaunt,Ply_IsSpeaking,Ply_IsSprinting,Ply_IsSuperAdmin,Ply_IsTyping,Ply_IsUserGroup,Ply_IsWalking,Ply_KeyDown,Ply_KeyDownLast,Ply_KeyPressed,Ply_KeyReleased,Ply_OwnerSteamID64,Ply_Ping,Ply_ShouldDrawLocalPlayer,Ply_SteamID,Ply_SteamID64,Ply_Team,Ply_UserID,Ply_VoiceVolume = PLY_META.Alive,PLY_META.AnimResetGestureSlot,PLY_META.AnimRestartGesture,PLY_META.AnimSetGestureWeight,PLY_META.Armor,PLY_META.Crouching,PLY_META.Deaths,PLY_META.FlashlightIsOn,PLY_META.Frags,PLY_META.GetActiveWeapon,PLY_META.GetAimVector,PLY_META.GetAmmoCount,PLY_META.GetCrouchedWalkSpeed,PLY_META.GetDuckSpeed,PLY_META.GetEntityInUse,PLY_META.GetEyeTrace,PLY_META.GetFOV,PLY_META.GetFriendStatus,PLY_META.GetHull,PLY_META.GetHullDuck,PLY_META.GetJumpPower,PLY_META.GetLadderClimbSpeed,PLY_META.GetMaxArmor,PLY_META.GetMaxSpeed,PLY_META.GetName,PLY_META.GetPlayerColor,PLY_META.GetRagdollEntity,PLY_META.GetRunSpeed,PLY_META.GetShootPos,PLY_META.GetSlowWalkSpeed,PLY_META.GetStepSize,PLY_META.GetUnDuckSpeed,PLY_META.GetUserGroup,PLY_META.GetVehicle,PLY_META.GetViewEntity,PLY_META.GetViewModel,PLY_META.GetViewPunchAngles,PLY_META.GetWalkSpeed,PLY_META.GetWeapon,PLY_META.GetWeaponColor,PLY_META.GetWeapons,PLY_META.InVehicle,PLY_META.IsAdmin,PLY_META.IsBot,PLY_META.IsFrozen,PLY_META.IsMuted,PLY_META.IsPlayingTaunt,PLY_META.IsSpeaking,PLY_META.IsSprinting,PLY_META.IsSuperAdmin,PLY_META.IsTyping,PLY_META.IsUserGroup,PLY_META.IsWalking,PLY_META.KeyDown,PLY_META.KeyDownLast,PLY_META.KeyPressed,PLY_META.KeyReleased,PLY_META.OwnerSteamID64,PLY_META.Ping,PLY_META.ShouldDrawLocalPlayer,PLY_META.SteamID,PLY_META.SteamID64,PLY_META.Team,PLY_META.UserID,PLY_META.VoiceVolume
 
 local player_methods, player_meta, wrap, unwrap = instance.Types.Player.Methods, instance.Types.Player, instance.Types.Player.Wrap, instance.Types.Player.Unwrap
 local owrap, ounwrap = instance.WrapObject, instance.UnwrapObject
@@ -442,7 +442,7 @@ end
 
 --- Gets the amount of ammo the player has.
 -- @shared
--- @param string|number idOrName The string ammo name or number id of the ammo
+-- @param string|number id The string ammo name or number id of the ammo
 -- @return number The amount of ammo player has in reserve.
 function player_methods:getAmmoCount(id)
 	if not isnumber(id) and not isstring(id) then SF.ThrowTypeError("number or string", SF.GetType(id), 2) end
@@ -494,7 +494,7 @@ function player_methods:keyDownLast(key)
 	return Ply_KeyDownLast(unwrap(self), key)
 end
 
---- Gets wether a key was just pressed this tick.
+--- Gets whether a key was just pressed this tick.
 -- @shared
 -- @param number key Key to check. See IN_KEY table values.
 -- @return boolean Was their key pressed.
@@ -502,7 +502,7 @@ function player_methods:keyPressed(key)
 	return Ply_KeyPressed(unwrap(self), key)
 end
 
---- Gets wether a key was just released this tick.
+--- Gets whether a key was just released this tick.
 -- @shared
 -- @param number key Key to check. See IN_KEY table values.
 -- @return boolean Was their key released.
@@ -510,11 +510,28 @@ function player_methods:keyReleased(key)
 	return Ply_KeyReleased(unwrap(self), key)
 end
 
-
 --- Returns if the player is taunting
 -- @return boolean Is the player taunting
 function player_methods:isPlayingTaunt()
 	return Ply_IsPlayingTaunt(unwrap(self))
+end
+
+--- Returns the player's hull minimum and maximum vectors
+-- @shared
+-- @return Vector The hull mins, the lowest corner of the Player's bounding box
+-- @return Vector The hull maxs, the highest corner of the Player's bounding box
+function player_methods:getHull()
+	local mins, maxs = Ply_GetHull(unwrap(self))
+	return vwrap(mins), vwrap(maxs)
+end
+
+--- Returns the player's duck hull minimum and maximum vectors
+-- @shared
+-- @return Vector The hull mins, the lowest corner of the Player's duck bounding box
+-- @return Vector The hull maxs, the highest corner of the Player's duck bounding box
+function player_methods:getHullDuck()
+	local mins, maxs = Ply_GetHullDuck(unwrap(self))
+	return vwrap(mins), vwrap(maxs)
 end
 
 if CLIENT then
@@ -605,7 +622,7 @@ if CLIENT then
 
 	--- Plays an animation on the player
 	-- @client
-	-- @param number|string sequence Sequence number or string name
+	-- @param number|string seq Sequence number or string name
 	-- @param number? progress Optional float (Default 0), the progress of the animation. Ranging from 0-1
 	-- @param number? rate Optional float (Default 1), the playback rate of the animation
 	-- @param boolean? loop Optional boolean (Default false), should the animation loop
@@ -662,7 +679,7 @@ if CLIENT then
 
 	--- Sets the animation activity
 	-- @client
-	-- @param number|string|nil activity Activity, nil to use the current animation sequence
+	-- @param number|string|nil act Activity, nil to use the current animation sequence
 	function player_methods:setAnimationActivity(act)
 		local ply = unwrap(self)
 		if instance.owner ~= ply then checkpermission(instance, ply, "entities.setRenderProperty") end
@@ -788,7 +805,7 @@ if CLIENT then
 		anim.range = anim.max - anim.min
 	end
 
-	--- Gets whether a animation is playing
+	--- Gets whether an animation is playing
 	-- @client
 	-- @return boolean If an animation is playing
 	function player_methods:isPlayingAnimation()

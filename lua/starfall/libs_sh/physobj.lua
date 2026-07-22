@@ -173,7 +173,7 @@ function physobj_methods:getMeshConvexes()
 end
 
 --- Sets the physical material of a physics object
--- @param string materialName The physical material to set it to
+-- @param string material The physical material to set it to
 function physobj_methods:setMaterial(material)
 	checkluatype(material, TYPE_STRING)
 	if #material > 32 then SF.Throw("Material name length is over 32!", 2) end
@@ -265,7 +265,7 @@ if SERVER then
 
 	--- Sets the angular velocity of the physics object instantly
 	-- @server
-	-- @param Angle ang The angular velocity that will be set
+	-- @param Vector vel The angular velocity that will be set
 	function physobj_methods:setAngleVelocityInstantaneous( vel )
 		vel = vunwrap1( vel )
 		checkvector( vel )
@@ -349,7 +349,7 @@ if SERVER then
 		Phys_SetAngleVelocity(phys, angvel)
 	end
 
-	--- Applies a angular velocity to an object
+	--- Applies an angular velocity to an object
 	-- @server
 	-- @param Vector angvel The local angvel vector to apply
 	function physobj_methods:addAngleVelocity(angvel)
