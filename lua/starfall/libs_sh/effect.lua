@@ -265,6 +265,7 @@ end
 -- @param number magnitude The magnitude
 function effect_methods:setMagnitude(magnitude)
 	checkluatype(magnitude, TYPE_NUMBER)
+	if magnitude ~= magnitude or magnitude <=0 or magnitude > 1023 then SF.Throw("Magnitude is out of range (0, 1023): "..magnitude, 2) end
 	unwrap(self):SetMagnitude(magnitude)
 end
 
@@ -291,6 +292,7 @@ end
 -- @param number radius The radius
 function effect_methods:setRadius(radius)
 	checkluatype(radius, TYPE_NUMBER)
+	if radius ~= radius or radius <=0 or radius > 1023 then SF.Throw("Radius is out of range (0, 1023): "..radius, 2) end
 	unwrap(self):SetRadius(radius)
 end
 

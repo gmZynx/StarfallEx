@@ -41,9 +41,18 @@ SF.PreprocessData = {
 
 		name = function(self, args) self.scriptname = string.sub(args, 1, 64) end,
 		author = function(self, args) self.scriptauthor = string.sub(args, 1, 64) end,
-		server = function(self, args) self.serverorclient = "server" end,
-		client = function(self, args) self.serverorclient = "client" end,
-		shared = function(self, args) self.serverorclient = nil end,
+		server = function(self, args)
+			if self.serverorclient ~= nil and self.serverorclient ~= "server" then return "Conflicting realm directives --@server/--@client/--@shared" end
+			self.serverorclient = "server"
+		end,
+		client = function(self, args)
+			if self.serverorclient ~= nil and self.serverorclient ~= "client" then return "Conflicting realm directives --@server/--@client/--@shared" end
+			self.serverorclient = "client"
+		end,
+		shared = function(self, args)
+			if self.serverorclient ~= nil and self.serverorclient ~= "shared" then return "Conflicting realm directives --@server/--@client/--@shared" end
+			self.serverorclient = "shared"
+		end,
 		clientmain = function(self, args) self.clientmain = args end,
 		superuser = function(self, args) self.superuser = true end,
 		owneronly = function(self, args) self.owneronly = true end,
@@ -61,7 +70,7 @@ SF.PreprocessData = {
 			for wholedirective, directive, args in string.gmatch(self.code, "(%-%-@(%w+)([^\r\n]*))") do
 				local func = SF.PreprocessData.directives[directive]
 				if func then
-					local err = func(self, string.Trim(args))
+					local err = func(self, SF.SafeStringLib.Trim(args))
 					if err then error("In file "..self.path..":"..self:FindError(err, wholedirective)..", "..err) end
 				end
 			end

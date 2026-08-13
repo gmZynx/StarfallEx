@@ -1068,15 +1068,27 @@ function ents_methods:isAlive()
 	return Ent_Alive(eunwrap(self))
 end
 
---- Returns the starfall or expression2's name
+--- Returns the starfall, wire gate, wire fpga or expression2's name
 -- @return string The name of the chip
 function ents_methods:getChipName()
 	local ent = eunwrap(self)
-	local GetGateName = Ent_GetTable(ent).GetGateName
+	local tbl = Ent_GetTable(ent)
+	local GetGateName = tbl.GetGateName
+	local GetOverlayData = tbl.GetOverlayData
+	local class = Ent_GetClass(ent)
 	if GetGateName then
 		return tostring(GetGateName(ent))
+	elseif class == "gmod_wire_fpga" then
+		local data = GetOverlayData and GetOverlayData(ent)
+		if not (data and data.name) then return "(none)" end
+		return tostring(data.name)
+	elseif class == "gmod_wire_gate" then
+		local data = GetOverlayData and GetOverlayData(ent)
+		if not (data and data.txt) then return "(none)" end
+		local lines = string.Split(data.txt, "\n")
+		return lines[1]
 	else
-		SF.Throw("The entity is not a starfall or expression2!", 2)
+		SF.Throw("The entity is not a starfall, wire gate, wire fpga or expression2!", 2)
 	end
 end
 
@@ -1336,6 +1348,25 @@ end
 function ents_methods:getBoneParent(bone)
 	if bone == nil then bone = 0 else checkluatype(bone, TYPE_NUMBER) end
 	return Ent_GetBoneParent(eunwrap(self), bone)
+end
+
+--- Returns a table with a list of bone indices of children bones of the given bone of an entity
+-- @shared
+-- @param number bone Bone index (starts at 0)
+-- @return table Table of child bone indices
+function ents_methods:getChildBones(bone)
+	checkluatype(bone, TYPE_NUMBER)
+	local ent = eunwrap(self)
+	bone = math.floor(bone)
+	local boneCount = Ent_GetBoneCount(ent)
+	if boneCount == 0 or bone < 0 or bone >= boneCount then SF.Throw("Invalid bone " .. bone, 2) end
+	local bones = {}
+	for k = 0, boneCount - 1 do
+		if Ent_GetBoneParent(ent, k) == bone then
+			bones[#bones + 1] = k
+		end
+	end
+	return bones
 end
 
 --- Returns the bone's position and angle in world coordinates
