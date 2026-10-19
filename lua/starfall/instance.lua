@@ -343,7 +343,7 @@ function SF.Instance:BuildEnvironment()
 			return object
 		end
 		-- Clientside holograms don't have a gmod metatype so check manually
-		if isentity(object) and object.IsSFHologram then
+		if metatable and metatable.__index and object.IsSFHologram then
 			return self.Types.Hologram.Wrap(object)
 		end
 	end
@@ -531,6 +531,9 @@ local CpuRamAverage = {
 		getAverageRam = function(self)
 			return self.ramAverage + (gcinfo() - self.ramAverage)*0.001
 		end,
+		getCpuReadableMetrics = function(self)
+			return math.Round(self.cpuAverage * 1000000), self.cpuAverage / self.cpuLimit * 100
+		end,
 		check = function(self, forceThrow, noThrow)
 			-- Check ram and cleanup before checking cpu so time spent is measured
 			local ram = gcinfo()
@@ -551,7 +554,7 @@ local CpuRamAverage = {
 			local cpuAverage = self:getAverageCpu()
 			if cpuAverage > self.cpuSoftLimit then
 				if cpuAverage > self.cpuLimit then
-					return self:doError("CPU usage exceeded!", true, noThrow, forceThrow or cpuAverage > self.cpuHardLimit)
+					return self:doError("CPU usage exceeded! "..string.format("(%dus, %d%%)", cpuAverage * 1e6, cpuAverage / self.cpuLimit * 100), true, noThrow, forceThrow or cpuAverage > self.cpuHardLimit)
 				else
 					return self:doError("CPU usage warning!", false, noThrow, false)
 				end
@@ -821,10 +824,13 @@ hook.Add("EntityRemoved", "SF_EntityRemoved", function(ent, snapshot)
 end)
 
 function SF.Instance:Error(err)
+	self:pushCpuCheck()
+	self.perf:stop()
 	if self.runOnError then -- We have a custom error function, use that instead
 		self.runOnError(err)
 	else
 		-- Default behavior
 		self:deinitialize()
 	end
+	self:popCpuCheck()
 end

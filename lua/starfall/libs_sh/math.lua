@@ -34,9 +34,7 @@ math_library.abs = math.abs
 -- @class function
 -- @param number x The number to get the sign of
 -- @return number -1 if negative, 1 if positive, 0 if 0
-function math_library.sign(x)
-	return (x<0 and -1) or (x>0 and 1) or 0
-end
+math_library.sign = math.Sign
 
 --- Calculates an angle in radians, between 0 and pi, which has the given cos value.
 -- @class function
@@ -591,6 +589,18 @@ math_library.easeOutCubic = math.ease.OutCubic
 -- @param number fraction Fraction of the progress to ease, from 0 to 1
 -- @return number "Eased" Value
 math_library.easeOutElastic = math.ease.OutElastic
+
+--- Eases out using an exponential equation with a base of 2 and where the fraction is used in the exponent.
+-- @class function
+-- @param number fraction Fraction of the progress to ease, from 0 to 1
+-- @return number "Eased" Value
+math_library.easeOutExpo = math.ease.OutExpo
+
+--- Eases out like a rubber band.
+-- @class function
+-- @param number fraction Fraction of the progress to ease, from 0 to 1
+-- @return number "Eased" Value
+math_library.easeOutQuad = math.ease.OutQuad
 
 --- Eases out by raising the fraction to the power of 4.
 -- @class function

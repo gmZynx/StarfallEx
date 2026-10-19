@@ -581,7 +581,7 @@ end
 
 local function steamIdToConsoleSafeName(steamid)
 	local ply = player.GetBySteamID(steamid)
-	return Ent_IsValid(ply) and string.gsub(Ply_Nick(ply), '[%z\x01-\x1f\x7f;"\']', "") or ""
+	return ply and Ent_IsValid(ply) and string.gsub(Ply_Nick(ply), '[%z\x01-\x1f\x7f;"\']', "") or ""
 end
 
 --- Returns a class that can keep a list of users
@@ -1266,7 +1266,7 @@ do
 	-- Takes values returned from starfall hook and returns what should be passed to the gmod hook
 	-- @param gmoverride Whether this hook should override the gamemode function (makes the hook run last, but adds a little overhead)
 	function SF.hookAdd(realname, hookname, customargfunc, customretfunc, gmoverride)
-		hookname = (hookname or realname):lower()
+		hookname = string.lower(hookname or realname)
 		registered_instances[hookname] = {}
 		if gmoverride then
 			local hookfunc = getHookFunc(registered_instances[hookname], hookname, customargfunc, customretfunc)
@@ -1850,7 +1850,7 @@ SF.allowedRenderGroups = {
 function SF.CheckMaterial(material)
 	if material == "" then return end
 	if #material > 260 then return false end
-	material = string.StripExtension(SF.NormalizePath(string.lower(material)))
+	material = string.StripExtension(SF.NormalizePath(string.gsub(string.lower(material), "\x00.*", "")))
 	if materialBlacklist[material] then return false end
 	local mat = Material(material)
 	if shaderBlacklist[mat:GetShader() or ""] then return false end
@@ -1859,7 +1859,7 @@ end
 
 function SF.CheckModel(model, ply, prop)
 	if #model > 260 then SF.Throw("Model path too long!", 3) end
-	model = SF.NormalizePath(string.lower(model))
+	model = SF.NormalizePath(string.gsub(string.lower(model), "\x00.*", ""))
 	if string.GetExtensionFromFilename(model) ~= "mdl" or (SERVER and (not util.IsValidModel(model) or (prop and not util.IsValidProp(model)))) then SF.Throw("Invalid model: "..model, 3) end
 	if ply~=SF.Superuser and hook.Run("PlayerSpawnObject", ply, model)==false then SF.Throw("Not allowed to use model: "..model, 3) end
 	return model
@@ -1893,7 +1893,7 @@ end
 
 function SF.CheckRagdoll(model)
 	if #model > 260 then return false end
-	model = SF.NormalizePath(string.lower(model))
+	model = SF.NormalizePath(string.gsub(string.lower(model), "\x00.*", ""))
 	if util.IsValidRagdoll(model) then
 		return model
 	end
@@ -1985,9 +1985,9 @@ end
 
 -- This function clamps the position before moving the entity
 function SF.clampPos(pos)
-	pos.x = math_Clamp(pos.x, -16384, 16384)
-	pos.y = math_Clamp(pos.y, -16384, 16384)
-	pos.z = math_Clamp(pos.z, -16384, 16384)
+	pos[1] = math_Clamp(pos[1], -16384, 16384)
+	pos[2] = math_Clamp(pos[2], -16384, 16384)
+	pos[3] = math_Clamp(pos[3], -16384, 16384)
 	return pos
 end
 
